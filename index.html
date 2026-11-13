@@ -104,7 +104,7 @@
   .spacer { margin-top: auto; }
 
   /* ---- app pages (library, forms, settings) ---- */
-  .nav { display: none; width: 100%; background: #FFFFFF; border-bottom: 1px solid var(--border); }
+  .nav { display: none; width: 100%; background: #FFFFFF; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 30; }
   .nav .in { max-width: 1100px; margin: 0 auto; padding: 6px 32px; display: flex; align-items: center; gap: 8px 24px; }
   .nav .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--deep); font-size: 18px; text-decoration: none; }
   .nav .brand img { width: 40px; height: 40px; border-radius: 10px; }
@@ -151,6 +151,8 @@
   .chk.sm { min-height: 32px; gap: 5px; font-size: 13px; white-space: nowrap; }
   .chk.sm input { width: 16px; height: 16px; }
   .rowbtn.sm { min-height: 32px; padding: 0 10px; font-size: 13px; border-radius: 8px; }
+  .webonly { display: none; }
+  @media (min-width: 900px) { button.webonly { display: inline-flex; } p.webonly { display: block; } }
   .gcard { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; }
   .gcard .nm { font-size: 16px; line-height: 22px; font-weight: 600; }
   .gcard .grow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -496,7 +498,7 @@ function skillView(idOrNew, fromStudent) {
     '<div class="fld"><label class="lbl" for="kOrd">Order within the level</label><input id="kOrd" type="number" value="' + order + '"></div></div>' +
     '<div class="checks"><label class="chk" style="align-items:flex-start"><input id="kTpl" type="checkbox"' + (v.in_template ? " checked" : "") + '><span>In template<small>Tick to hand this skill out when its category is assigned to a student.</small></span></label>' +
     '<label class="chk" style="align-items:flex-start"><input id="kAct" type="checkbox"' + (v.active ? " checked" : "") + '><span>Active<small>Untick to retire it. Existing grades are kept.</small></span></label></div>' +
-    '<div class="btnrow"><button class="btn2" type="submit" id="kSave">' + (fromStudent && isNew ? "Save and assign to student" : "Save skill") + '</button><a class="btn2 sec" href="#/' + backTo + '">Cancel</a></div></form>';
+    '<div class="btnrow"><button class="btn2" type="submit" id="kSave">' + (fromStudent && isNew ? "Save and assign to student" : "Save skill") + '</button><a class="btn2 sec" href="#/' + backTo + '">Cancel</a>' + (isNew ? "" : '<button class="btn2 sec webonly" type="button" id="kDel" style="color:#B91C1C;border-color:#B91C1C">Delete skill</button>') + '</div>' + (isNew ? "" : '<p class="hint webonly" style="margin:8px 0 0 0">Delete is for mistakes such as duplicates. It is blocked while any student has a grade for this skill. To keep a skill but hide it, untick Active instead.</p>') + '</form>';
   return shell(fromStudent ? "students" : "library", isNew ? "Add skill" : "Edit skill", fromStudent ? "Adds the skill to the library and to " + ((sdata.students.find((x) => x.id === fromStudent) || {}).name || "this student") + "'s list." : "", backTo, "", body);
 }
 function wireSkill(idOrNew, fromStudent) {
@@ -505,6 +507,32 @@ function wireSkill(idOrNew, fromStudent) {
   const sk = isNew ? null : data.skills.find((s) => s.id === idOrNew);
   const form = document.getElementById("skillForm");
   if (!form) return;
+  const delBtn = document.getElementById("kDel");
+  if (delBtn && sk) delBtn.addEventListener("click", async () => {
+    delBtn.disabled = true;
+    const lr = await sb.from("skill_log").select("student_id,grade").eq("skill_id", sk.id);
+    if (lr.error) { setMessage("err", "Could not check which students have this skill."); render(); return; }
+    await loadStudents();
+    const graded = (lr.data || []).filter((r) => r.grade);
+    if (graded.length) {
+      const names = graded.map((r) => { const st = sdata.students.find((x) => x.id === r.student_id); return (st ? st.name : "A student") + " (" + r.grade + ")"; });
+      setMessage("err", "Cannot delete " + sk.name + " yet. Graded for: " + names.join(", ") + ". Open each student, remove the skill from their list or clear the grade, then try again.");
+      render();
+      return;
+    }
+    const assigned = (lr.data || []).length;
+    if (!window.confirm("Delete " + sk.name + " from the library?" + (assigned ? " It will also be taken off " + assigned + " student list" + (assigned === 1 ? "" : "s") + " where it has no grade." : "") + " This cannot be undone.")) { delBtn.disabled = false; return; }
+    if (assigned) {
+      const d1 = await sb.from("skill_log").delete().eq("skill_id", sk.id);
+      if (d1.error) { setMessage("err", "Could not take the skill off student lists: " + d1.error.message); render(); return; }
+    }
+    const d2 = await sb.from("skills").delete().eq("id", sk.id);
+    if (d2.error) { setMessage("err", "Could not delete the skill: " + d2.error.message); render(); return; }
+    await loadSkills();
+    sdata.loaded = false;
+    setMessage("ok", "Deleted " + sk.name + ".");
+    go("library");
+  });
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const name = document.getElementById("kName").value.trim();
@@ -750,7 +778,8 @@ function gradeCard(sk, row, find) {
   if (find) right = esc(sk.category) + "<br>Level " + sk.level;
   else if (g) right = "Graded " + fmtDate(row.graded_on) + (row.graded_by && sdata.instructors[row.graded_by] ? "<br><b style=\"color:#51165F\">by " + esc(sdata.instructors[row.graded_by]) + "</b>" : "");
   else right = "Not graded yet";
-  return '<div class="gcard"><div class="nm">' + esc(sk.name) + '</div><div class="grow"><div class="chips" role="group" aria-label="Grade for ' + esc(sk.name) + '">' + chipsHtml(sk.id, g, sk.name) + '</div><div class="side" style="text-align:' + (find ? "center" : "right") + '">' + right + "</div></div></div>";
+  const nm = find ? '<div class="nm">' + esc(sk.name) + "</div>" : '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div class="nm">' + esc(sk.name) + '</div><button type="button" class="rowbtn sm" data-act="unassign" data-skill="' + sk.id + '" aria-label="Remove ' + esc(sk.name) + ' from this student\'s list">Remove</button></div>';
+  return '<div class="gcard">' + nm + '<div class="grow"><div class="chips" role="group" aria-label="Grade for ' + esc(sk.name) + '">' + chipsHtml(sk.id, g, sk.name) + '</div><div class="side" style="text-align:' + (find ? "center" : "right") + '">' + right + "</div></div></div>";
 }
 function gradeBodyHtml(student) {
   const appId = gui.apparatusId;
@@ -840,6 +869,21 @@ function wireGrade(id) {
     const act = t.getAttribute("data-act");
     if (act === "tab") { gui.tab = t.getAttribute("data-tab"); render(); }
     else if (act === "fsort") { const k = t.getAttribute("data-key"); if (gui.fkey === k) gui.fdir = gui.fdir === "asc" ? "desc" : "asc"; else { gui.fkey = k; gui.fdir = "asc"; } refreshGrade(id); }
+    else if (act === "unassign") {
+      const skId = t.getAttribute("data-skill");
+      const row = sdata.log.find((l) => l.student_id === id && l.skill_id === skId);
+      const sk = skillById(skId);
+      const st = sdata.students.find((x) => x.id === id);
+      if (!row) return;
+      const warn = row.grade ? " It is graded " + row.grade + ", and that grade will be removed too." : "";
+      if (!window.confirm("Remove " + (sk ? sk.name : "this skill") + " from " + (st ? st.name : "this student") + "'s list?" + warn)) return;
+      t.disabled = true;
+      const del = await sb.from("skill_log").delete().eq("id", row.id);
+      if (del.error) { setMessage("err", "Could not remove that skill."); render(); return; }
+      sdata.log = sdata.log.filter((l) => l.id !== row.id);
+      setMessage("ok", "Removed " + (sk ? sk.name : "the skill") + " from their list.");
+      render();
+    }
     else if (act === "toggleAssign") { gui.assignOpen = !gui.assignOpen; refreshGrade(id); }
     else if (act === "grade") { await setGrade(id, t.getAttribute("data-skill"), t.getAttribute("data-letter")); }
     else if (act === "assign") {
@@ -1154,7 +1198,7 @@ function importView() {
     "<li>Press <b>Download All Skills</b>. It opens in Excel or Google Sheets and lists every skill already in the library (active and inactive).</li>" +
     "<li>Use that list to determine if a skill is already in the library. You can then delete the rows you don't need and keep the top header row, or press <b>Download blank Upload template</b> for a clean file.</li>" +
     "<li>Add the new skills as new rows below the top header row.<br><b>Apparatus</b> options are " + esc(apps) + ".<br><b>Category</b> options are " + CATS.slice(0, -1).join(", ") + " or " + CATS[CATS.length - 1] + ".<br><b>Level</b> options are 1, 2 or 3.<br><b>In template</b> must be yes or no.</li>" +
-    "<li>Save as CSV, press <b>Upload New Skills</b>, check the preview, then press the add button. Skills already in the library are skipped, so a repeat upload is safe.</li></ol>" +
+    "<li>Save as CSV, press <b>Upload New Skills</b>, select file, check the preview, then press the add button. Skills already in the library are skipped, so the system will not duplicate skills within reason.</li></ol>" +
     '<p class="hint" style="margin:10px 0 0 0">The text entered in the Apparatus, Category, In template and Skill name fields is not case sensitive.</p></section>' +
     '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0"><button class="btn2 sec" type="button" id="iDown">Download All Skills</button><button class="btn2 sec" type="button" id="iTpl">Download blank Upload template</button><button class="btn2" type="button" id="iUp">Upload New Skills</button><input id="iFile" type="file" accept=".csv,text/csv" hidden></div>' +
     '<div id="iPrev">' + importPreviewHtml() + "</div>";
