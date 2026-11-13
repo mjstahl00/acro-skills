@@ -470,8 +470,8 @@ function skillView(idOrNew, fromStudent) {
     '<div class="fld"><label class="lbl" for="kOrd">Order within the level</label><input id="kOrd" type="number" value="' + order + '"></div></div>' +
     '<div class="checks"><label class="chk" style="align-items:flex-start"><input id="kTpl" type="checkbox"' + (v.in_template ? " checked" : "") + '><span>In template<small>Tick to hand this skill out when its category is assigned to a student.</small></span></label>' +
     '<label class="chk" style="align-items:flex-start"><input id="kAct" type="checkbox"' + (v.active ? " checked" : "") + '><span>Active<small>Untick to retire it. Existing grades are kept.</small></span></label></div>' +
-    '<div class="btnrow"><button class="btn2" type="submit" id="kSave">Save skill</button><a class="btn2 sec" href="#/' + backTo + '">Cancel</a></div></form>';
-  return shell(fromStudent ? "students" : "library", isNew ? "Add skill" : "Edit skill", fromStudent ? "It will also be added to this student's list." : "", backTo, "", body);
+    '<div class="btnrow"><button class="btn2" type="submit" id="kSave">' + (fromStudent && isNew ? "Save and assign to student" : "Save skill") + '</button><a class="btn2 sec" href="#/' + backTo + '">Cancel</a></div></form>';
+  return shell(fromStudent ? "students" : "library", isNew ? "Add skill" : "Edit skill", fromStudent ? "Adds the skill to the library and to " + ((sdata.students.find((x) => x.id === fromStudent) || {}).name || "this student") + "'s list." : "", backTo, "", body);
 }
 function wireSkill(idOrNew, fromStudent) {
   wireShell();
@@ -710,7 +710,7 @@ function gradeBodyHtml(student) {
   const cards = list.map((s) => gradeCard(s, myRows.find((l) => l.skill_id === s.id), true)).join("");
   return '<p class="hint" style="text-align:center">Grading a skill here adds it to their list.</p>' +
     (cards ? '<div class="ggrid">' + cards + "</div>" : '<p class="card">No skills match.</p>') +
-    '<a class="btn2 sec" style="border-style:dashed;border-color:#9032A8" href="#/skill/new/' + gui.studentId + '">New skill</a>';
+    '<a class="btn2 sec" style="border-style:dashed;border-color:#9032A8" href="#/skill/new/' + gui.studentId + '">Add new skill to library and assign to student</a>';
 }
 function assignHtml() {
   const apps = optionsHtml(data.apparatus.map((a) => ({ value: a.id, label: a.name })), gui.apparatusId);
@@ -736,7 +736,7 @@ function gradeView(id) {
       '<div class="f"><label for="gCat">Category</label><select id="gCat">' + optionsHtml([{ value: "All", label: "All" }].concat(CATS.map((c) => ({ value: c, label: c }))), gui.cat) + "</select></div>" +
       '<div class="f"><label for="gLvl">Level</label><select id="gLvl">' + optionsHtml([{ value: "All", label: "All" }, { value: "1", label: "1" }, { value: "2", label: "2" }, { value: "3", label: "3" }], gui.lvl) + "</select></div></div>" : "") +
     "</div>" + '<div id="gradeBody" style="display:flex;flex-direction:column;gap:18px">' + gradeBodyHtml(st) + "</div>";
-  return shell("students", st.name, stats.graded + " of " + stats.total + " graded", "students", "", body);
+  return shell("students", st.name, stats.graded + " of " + stats.total + " graded", "students", '<a class="rowbtn" href="#/student/' + id + '/edit">Edit student</a>', body);
 }
 function refreshGrade(id) {
   const st = sdata.students.find((s) => s.id === id);
@@ -794,6 +794,35 @@ async function setGrade(studentId, skillId, letter) {
   }
 }
 
+/* ---------- Edit student ---------- */
+function editStudentView(id) {
+  const st = sdata.students.find((x) => x.id === id);
+  if (!st) return shell("students", "Student", "", "students", "", '<p class="card">That student was not found. <a href="#/students">Back to students</a></p>');
+  const body = '<form class="formcard" id="editForm" novalidate>' +
+    '<div class="fld"><label class="lbl" for="eName">Student name</label><input id="eName" type="text" autocomplete="off" value="' + esc(st.name) + '"></div>' +
+    '<label class="chk" style="align-items:flex-start"><input id="eAct" type="checkbox"' + (st.active ? " checked" : "") + '><span>Active<small style="display:block;color:#5E5566;font-size:13px;line-height:18px">Untick to hide them from the student list. Their grades are kept, and you can make them active again later.</small></span></label>' +
+    '<div class="btnrow"><button class="btn2" type="submit" id="eSave">Save</button><a class="btn2 sec" href="#/student/' + id + '">Cancel</a></div></form>';
+  return shell("students", "Edit student", "", "student/" + id, "", body);
+}
+function wireEditStudent(id) {
+  wireShell();
+  const f = document.getElementById("editForm");
+  if (!f) return;
+  f.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("eName").value.trim();
+    if (!name) { setMessage("err", "Enter the student's name."); render(); return; }
+    document.getElementById("eSave").disabled = true;
+    const active = document.getElementById("eAct").checked;
+    const { error } = await sb.from("students").update({ name: name, active: active }).eq("id", id);
+    if (error) { setMessage("err", "Could not save the changes."); render(); return; }
+    const st = sdata.students.find((x) => x.id === id);
+    if (st) { st.name = name; st.active = active; }
+    setMessage("ok", active ? "Saved." : "Saved. " + name + " is now inactive and hidden from the student list.");
+    go(active ? "student/" + id : "students");
+  });
+}
+
 /* ---------- Stub for screens not built yet ---------- */
 function stubView(r) {
   return shell(r, titles[r] || "Not found", "", "home", "", '<div class="card">This screen is coming next.</div>');
@@ -847,6 +876,9 @@ async function render() {
   } else if (parts[0] === "students") {
     app.innerHTML = studentsView();
     wireStudents();
+  } else if (parts[0] === "student" && parts[2] === "edit") {
+    app.innerHTML = editStudentView(parts[1]);
+    wireEditStudent(parts[1]);
   } else if (parts[0] === "student" && parts[1] === "new") {
     app.innerHTML = addStudentView();
     wireAddStudent();
