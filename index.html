@@ -408,7 +408,7 @@ function libraryView() {
   const cats = optionsHtml([{ value: "All", label: "All" }].concat(CATS.map((c) => ({ value: c, label: c }))), lib.cat);
   const lvls = optionsHtml([{ value: "All", label: "All" }, { value: "1", label: "1" }, { value: "2", label: "2" }, { value: "3", label: "3" }], lib.level);
   const count = data.loaded ? visibleSkills().length + " shown" : "";
-  const add = '<a class="btn2" href="#/skill/new">Add skill</a>';
+  const add = '<div style="display:flex;gap:8px"><a class="btn2 sec" href="#/import">Import / export</a><a class="btn2" href="#/skill/new">Add skill</a></div>';
   const body = '<div class="panel">' +
     '<div class="f"><label for="fApp">Apparatus</label><select id="fApp">' + apps + "</select></div>" +
     '<div class="f"><label for="fCat">Category</label><select id="fCat">' + cats + "</select></div>" +
@@ -668,7 +668,7 @@ function studentListHtml() {
   if (!rows.length) return '<p class="card">' + (sdata.students.length ? "No students match." : "No students yet. Tap Add student to create the first one.") + "</p>";
   const cards = rows.map((s) =>
     '<a class="scard" style="text-decoration:none;color:inherit" href="#/student/' + s.id + '"><div class="nm">' + esc(s.name) + (s.active ? "" : ' <span class="hint">(inactive)</span>') + "</div>" +
-    '<div class="meta">' + (levelsText(s.id) ? esc(levelsText(s.id)) + " · " : "") + (s.total ? s.graded + " of " + s.total + " graded" + (s.last ? " · last " + fmtDate(s.last) : "") : "Not started") + "</div></a>").join("");
+    '<div class="meta">' + (levelsText(s.id) ? esc(levelsText(s.id)) + " · " : "") + (s.total ? s.graded + " of " + s.total + " graded" + (s.last ? " · last graded " + fmtDate(s.last) : "") : "Not started") + "</div></a>").join("");
   const cols = [["name", "Name"], ["level", "Current level"], ["graded", "Skills graded"], ["last", "Last graded"], ["active", "Status"]];
   const head = cols.map((c) => '<th scope="col" aria-sort="' + (sui.key === c[0] ? (sui.dir === "asc" ? "ascending" : "descending") : "none") + '"><button type="button" data-act="ssort" data-key="' + c[0] + '"><span>' + c[1] + '</span><span aria-hidden="true" style="font-size:11px">' + (sui.key === c[0] ? (sui.dir === "asc" ? "▲" : "▼") : "") + "</span></button></th>").join("");
   const trs = rows.map((s) =>
@@ -803,14 +803,14 @@ function gradeView(id) {
       '<div class="f"><label for="gCat">Category</label><select id="gCat">' + optionsHtml([{ value: "All", label: "All" }].concat(CATS.map((c) => ({ value: c, label: c }))), gui.cat) + "</select></div>" +
       '<div class="f"><label for="gLvl">Level</label><select id="gLvl">' + optionsHtml([{ value: "All", label: "All" }, { value: "1", label: "1" }, { value: "2", label: "2" }, { value: "3", label: "3" }], gui.lvl) + "</select></div></div>" : "") +
     "</div>" + '<div id="gradeBody" style="display:flex;flex-direction:column;gap:18px">' + gradeBodyHtml(st) + "</div>";
-  return shell("students", st.name, (levelsText(id) ? levelsText(id) + " · " : "") + stats.graded + " of " + stats.total + " graded", "students", '<a class="rowbtn" href="#/student/' + id + '/edit">Edit student</a>', body);
+  return shell("students", st.name, stats.graded + " of " + stats.total + " graded", "students", '<a class="rowbtn" href="#/student/' + id + '/edit">Edit student</a>', body);
 }
 function refreshGrade(id) {
   const st = sdata.students.find((s) => s.id === id);
   const el = document.getElementById("gradeBody");
   if (el && st) el.innerHTML = gradeBodyHtml(st);
   const sub = document.querySelector(".topbar2 .sub");
-  if (sub) { const s = studentStats(id); sub.textContent = (levelsText(id) ? levelsText(id) + " · " : "") + s.graded + " of " + s.total + " graded"; }
+  if (sub) { const s = studentStats(id); sub.textContent = s.graded + " of " + s.total + " graded"; }
 }
 function wireGrade(id) {
   wireShell();
@@ -1040,6 +1040,128 @@ function wireLog() {
   bind("lPrint", "click", () => { window.print(); });
 }
 
+/* ---------- Import / export skills (CSV) ---------- */
+const imp = { rows: null, file: "", done: "" };
+const IMP_COLS = ["name", "description", "apparatus", "category", "level", "sort_order", "in_template"];
+
+function parseCsv(text) {
+  text = String(text).replace(/^﻿/, "");
+  const rows = []; let row = [], cur = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+      else cur += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { row.push(cur); cur = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(cur); cur = ""; rows.push(row); row = [];
+    } else cur += c;
+  }
+  if (cur !== "" || row.length) { row.push(cur); rows.push(row); }
+  return rows.filter((r) => r.some((x) => String(x).trim() !== ""));
+}
+function skillsCsv(skills) {
+  const lines = [IMP_COLS.join(",")];
+  skills.forEach((s) => lines.push([s.name, s.description || "", apparatusName(s.apparatus_id), s.category, s.level, s.sort_order || 0, s.in_template ? "yes" : "no"].map(csvEscape).join(",")));
+  return "﻿" + lines.join("\r\n");
+}
+function templateCsv() {
+  const ap = data.apparatus.length ? data.apparatus[0].name : "Fabric";
+  return "﻿" + IMP_COLS.join(",") + "\r\n" + ["Example skill name", "Optional notes", ap, "Basic", 1, 1, "yes"].map(csvEscape).join(",");
+}
+function keyOf(appId, name, cat, lvl) { return [appId, String(name).trim().toLowerCase(), cat, String(lvl)].join("|"); }
+function analyseImport(table) {
+  const head = table[0].map((h) => String(h).trim().toLowerCase().replace(/\s+/g, "_"));
+  const idx = {}; IMP_COLS.forEach((c) => { idx[c] = head.indexOf(c); });
+  const missing = ["name", "apparatus", "category", "level"].filter((c) => idx[c] === -1);
+  if (missing.length) return { error: "The file is missing these column headings: " + missing.join(", ") + ". Use Download blank template to get the right headings." };
+  const have = {};
+  data.skills.forEach((s) => { have[keyOf(s.apparatus_id, s.name, s.category, s.level)] = true; });
+  const next = {};
+  data.skills.forEach((s) => { const k = s.apparatus_id + "|" + s.category + "|" + s.level; next[k] = Math.max(next[k] || 0, s.sort_order || 0); });
+  const rows = [];
+  table.slice(1).forEach((r, n) => {
+    const get = (c) => (idx[c] === -1 ? "" : String(r[idx[c]] === undefined ? "" : r[idx[c]]).trim());
+    const o = { line: n + 2, name: get("name"), description: get("description"), apparatusText: get("apparatus"), categoryText: get("category"), levelText: get("level"), orderText: get("sort_order"), tplText: get("in_template").toLowerCase(), status: "new", note: "" };
+    const app = data.apparatus.find((a) => a.name.toLowerCase() === o.apparatusText.toLowerCase());
+    const cat = CATS.find((c) => c.toLowerCase() === o.categoryText.toLowerCase());
+    const lvl = /^[123]$/.test(o.levelText) ? Number(o.levelText) : null;
+    const problems = [];
+    if (!o.name) problems.push("name is blank");
+    if (!app) problems.push('apparatus "' + o.apparatusText + '" is not in Settings');
+    if (!cat) problems.push('category "' + o.categoryText + '" must be Basic, Intermediate, Advanced or Expert');
+    if (!lvl) problems.push('level "' + o.levelText + '" must be 1, 2 or 3');
+    if (o.orderText && !/^\d+$/.test(o.orderText)) problems.push("sort_order must be a whole number");
+    if (problems.length) { o.status = "bad"; o.note = problems.join("; "); }
+    else {
+      const k = keyOf(app.id, o.name, cat, lvl);
+      if (have[k]) { o.status = "exists"; o.note = "Already in the library, skipped"; }
+      else {
+        have[k] = true;
+        const nk = app.id + "|" + cat + "|" + lvl;
+        const ord = o.orderText ? Number(o.orderText) : (next[nk] || 0) + 1;
+        next[nk] = Math.max(next[nk] || 0, ord);
+        o.record = { name: o.name, description: o.description || null, apparatus_id: app.id, category: cat, level: lvl, sort_order: ord, active: true, in_template: ["yes", "y", "true", "1", "x"].indexOf(o.tplText) !== -1 };
+      }
+    }
+    rows.push(o);
+  });
+  return { rows: rows };
+}
+function importPreviewHtml() {
+  if (imp.done) return '<p class="msg ok" role="status">' + esc(imp.done) + "</p>";
+  if (!imp.rows) return "";
+  const c = { new: 0, exists: 0, bad: 0 }; imp.rows.forEach((r) => { c[r.status]++; });
+  const label = { new: "Will add", exists: "Skipped", bad: "Problem" };
+  const color = { new: "#15803D", exists: "#5E5566", bad: "#B91C1C" };
+  const trs = imp.rows.map((r) => '<tr><td>' + r.line + '</td><td style="font-weight:700;color:' + color[r.status] + '">' + label[r.status] + "</td><td>" + esc(r.name) + "</td><td>" + esc(r.apparatusText) + " · " + esc(r.categoryText) + " · " + esc(r.levelText) + "</td><td>" + esc(r.note) + "</td></tr>").join("");
+  return '<section class="card"><h2 style="margin:0 0 6px 0">Preview of ' + esc(imp.file) + "</h2><p>" + c.new + " to add, " + c.exists + " already in the library (skipped), " + c.bad + " with problems (skipped). Nothing is saved until you press the button.</p>" +
+    '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:560px"><thead><tr><th style="text-align:left;padding:6px">Row</th><th style="text-align:left;padding:6px">Result</th><th style="text-align:left;padding:6px">Skill</th><th style="text-align:left;padding:6px">Apparatus · category · level</th><th style="text-align:left;padding:6px">Note</th></tr></thead><tbody>' + trs + "</tbody></table></div>" +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px"><button class="btn2" type="button" id="iGo"' + (c.new ? "" : " disabled") + ">Add " + c.new + " new skill" + (c.new === 1 ? "" : "s") + '</button><button class="btn2 sec" type="button" id="iCancel">Cancel</button></div></section>';
+}
+function importView() {
+  const body = '<section class="card"><h2 style="margin:0 0 6px 0">How to add skills from a file</h2><ol style="margin:0;padding-left:22px;line-height:1.6">' +
+    "<li>Press <b>Download current skills</b>. It opens in Excel or Google Sheets and lists every skill already in the library.</li>" +
+    "<li>Use that list to check a skill isn't already there, then delete the rows you don't need. Keep the top heading row.</li>" +
+    "<li>Add only the new skills as new rows. Apparatus must match a name in Settings. Category is Basic, Intermediate, Advanced or Expert. Level is 1, 2 or 3. In template is yes or no.</li>" +
+    "<li>Save as CSV, choose it below, check the preview, then press the add button. Skills already in the library are skipped, so a repeat upload is safe.</li></ol></section>" +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0"><button class="btn2 sec" type="button" id="iDown">Download current skills</button><button class="btn2 sec" type="button" id="iTpl">Download blank template</button></div>' +
+    '<div class="f" style="margin-bottom:14px"><label for="iFile">Choose your CSV file</label><input id="iFile" type="file" accept=".csv,text/csv"></div>' +
+    '<div id="iPrev">' + importPreviewHtml() + "</div>";
+  return shell("library", "Import skills", "", "library", "", body);
+}
+function wireImport() {
+  wireShell();
+  const prev = () => { document.getElementById("iPrev").innerHTML = importPreviewHtml(); wirePrev(); };
+  const wirePrev = () => {
+    const go = document.getElementById("iGo"), cn = document.getElementById("iCancel");
+    if (cn) cn.addEventListener("click", () => { imp.rows = null; imp.file = ""; document.getElementById("iFile").value = ""; prev(); });
+    if (go) go.addEventListener("click", async () => {
+      go.disabled = true; go.textContent = "Adding…";
+      const recs = imp.rows.filter((r) => r.status === "new").map((r) => r.record);
+      const { error } = await sb.from("skills").insert(recs);
+      if (error) { setMessage("err", "Could not add the skills: " + error.message); imp.rows = null; imp.file = ""; render(); return; }
+      await loadSkills();
+      imp.done = "Added " + recs.length + " skill" + (recs.length === 1 ? "" : "s") + " to the library."; imp.rows = null; imp.file = "";
+      render();
+    });
+  };
+  document.getElementById("iDown").addEventListener("click", () => downloadText("skills-" + todayStr() + ".csv", skillsCsv(data.skills)));
+  document.getElementById("iTpl").addEventListener("click", () => downloadText("skills-template.csv", templateCsv()));
+  document.getElementById("iFile").addEventListener("change", async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    imp.done = ""; setMessage(null);
+    const table = parseCsv(await f.text());
+    if (table.length < 2) { imp.rows = null; document.getElementById("iPrev").innerHTML = '<p class="msg err" role="alert">That file has no skill rows under the heading row.</p>'; return; }
+    const res = analyseImport(table);
+    if (res.error) { imp.rows = null; document.getElementById("iPrev").innerHTML = '<p class="msg err" role="alert">' + esc(res.error) + "</p>"; return; }
+    imp.rows = res.rows; imp.file = f.name; prev();
+  });
+  wirePrev();
+}
+
 /* ---------- Stub for screens not built yet ---------- */
 function stubView(r) {
   return shell(r, titles[r] || "Not found", "", "home", "", '<div class="card">This screen is coming next.</div>');
@@ -1064,7 +1186,7 @@ async function render() {
   const r = route();
   const parts = r.split("/");
   const token = ++renderToken;
-  const known = ["library", "skill", "settings", "students", "student", "log"];
+  const known = ["library", "skill", "settings", "students", "student", "log", "import"];
   if (r === "home" || known.indexOf(parts[0]) === -1) {
     app.innerHTML = homeView();
     document.getElementById("signout").addEventListener("click", signOut);
@@ -1087,6 +1209,10 @@ async function render() {
   } else if (parts[0] === "skill") {
     app.innerHTML = skillView(parts[1] || "new", parts[2]);
     wireSkill(parts[1] || "new", parts[2]);
+  } else if (parts[0] === "import") {
+    imp.rows = imp.rows && imp.file ? imp.rows : null;
+    app.innerHTML = importView();
+    wireImport();
   } else if (parts[0] === "settings") {
     app.innerHTML = settingsView();
     wireSettings();
