@@ -408,7 +408,7 @@ function libraryView() {
   const cats = optionsHtml([{ value: "All", label: "All" }].concat(CATS.map((c) => ({ value: c, label: c }))), lib.cat);
   const lvls = optionsHtml([{ value: "All", label: "All" }, { value: "1", label: "1" }, { value: "2", label: "2" }, { value: "3", label: "3" }], lib.level);
   const count = data.loaded ? visibleSkills().length + " shown" : "";
-  const add = '<div style="display:flex;gap:8px"><a class="btn2 sec" href="#/import">Import / export</a><a class="btn2" href="#/skill/new">Add skill</a></div>';
+  const add = '<div style="display:flex;gap:8px"><a class="btn2 sec" href="#/import">Upload / Download</a><a class="btn2" href="#/skill/new">Add skill</a></div>';
   const body = '<div class="panel">' +
     '<div class="f"><label for="fApp">Apparatus</label><select id="fApp">' + apps + "</select></div>" +
     '<div class="f"><label for="fCat">Category</label><select id="fCat">' + cats + "</select></div>" +
@@ -614,7 +614,7 @@ function todayStr() {
 }
 const sdata = { students: [], log: [], levels: [], instructors: {}, loaded: false };
 const sui = { q: "", inactive: false, key: "name", dir: "asc" };
-const gui = { apparatusId: null, tab: "mine", q: "", cat: "All", lvl: "All", assignOpen: false, studentId: null };
+const gui = { apparatusId: null, tab: "mine", q: "", cat: "All", lvl: "All", assignOpen: false, studentId: null, fkey: "category", fdir: "asc" };
 
 async function loadStudents() {
   const a = await sb.from("students").select("*").order("name");
@@ -773,10 +773,25 @@ function gradeBodyHtml(student) {
   const list = data.skills.filter((s) => s.apparatus_id === appId && s.active)
     .filter((s) => gui.cat === "All" || s.category === gui.cat).filter((s) => gui.lvl === "All" || String(s.level) === gui.lvl)
     .filter((s) => q === "" || s.name.toLowerCase().indexOf(q) !== -1)
-    .sort((a, b) => (CATS.indexOf(a.category) - CATS.indexOf(b.category)) || (a.level - b.level) || (a.sort_order - b.sort_order));
+  const gradeOf = (s) => { const r = myRows.find((l) => l.skill_id === s.id); return r && r.grade ? r.grade : ""; };
+  const dir = gui.fdir === "asc" ? 1 : -1;
+  const byCat = (a, b) => (CATS.indexOf(a.category) - CATS.indexOf(b.category)) || (a.level - b.level) || (a.sort_order - b.sort_order);
+  list.sort((a, b) => {
+    let r;
+    if (gui.fkey === "name") r = a.name.localeCompare(b.name);
+    else if (gui.fkey === "level") r = a.level - b.level;
+    else if (gui.fkey === "order") r = a.sort_order - b.sort_order;
+    else if (gui.fkey === "grade") { const x = gradeOf(a) || "Z", y = gradeOf(b) || "Z"; r = x < y ? -1 : x > y ? 1 : 0; }
+    else r = byCat(a, b);
+    return (r * dir) || byCat(a, b) || a.name.localeCompare(b.name);
+  });
   const cards = list.map((s) => gradeCard(s, myRows.find((l) => l.skill_id === s.id), true)).join("");
+  const fcols = [["name", "Skill"], ["category", "Category"], ["level", "Level"], ["order", "Order"], ["grade", "Grade"]];
+  const fhead = fcols.map((c) => '<th scope="col" aria-sort="' + (gui.fkey === c[0] ? (gui.fdir === "asc" ? "ascending" : "descending") : "none") + '"><button type="button" data-act="fsort" data-key="' + c[0] + '"><span>' + c[1] + '</span><span aria-hidden="true" style="font-size:11px">' + (gui.fkey === c[0] ? (gui.fdir === "asc" ? "▲" : "▼") : "") + "</span></button></th>").join("");
+  const ftrs = list.map((s) => '<tr><td style="font-weight:600">' + esc(s.name) + "</td><td>" + esc(s.category) + "</td><td>" + s.level + "</td><td>" + s.sort_order + '</td><td><div class="chips" role="group" aria-label="Grade for ' + esc(s.name) + '">' + chipsHtml(s.id, gradeOf(s), s.name) + "</div></td></tr>").join("");
+  const table = '<div class="tbl"><table style="min-width:600px"><thead><tr>' + fhead + "</tr></thead><tbody>" + ftrs + "</tbody></table></div>";
   return '<p class="hint" style="text-align:center">Grading a skill here adds it to their list.</p>' +
-    (cards ? '<div class="ggrid">' + cards + "</div>" : '<p class="card">No skills match.</p>') +
+    (cards ? '<div class="ggrid cards">' + cards + "</div>" + table : '<p class="card">No skills match.</p>') +
     '<a class="btn2 sec" style="border-style:dashed;border-color:#9032A8" href="#/skill/new/' + gui.studentId + '">Add new skill to library and assign to student</a>';
 }
 function assignHtml() {
@@ -824,6 +839,7 @@ function wireGrade(id) {
     if (!t) return;
     const act = t.getAttribute("data-act");
     if (act === "tab") { gui.tab = t.getAttribute("data-tab"); render(); }
+    else if (act === "fsort") { const k = t.getAttribute("data-key"); if (gui.fkey === k) gui.fdir = gui.fdir === "asc" ? "desc" : "asc"; else { gui.fkey = k; gui.fdir = "asc"; } refreshGrade(id); }
     else if (act === "toggleAssign") { gui.assignOpen = !gui.assignOpen; refreshGrade(id); }
     else if (act === "grade") { await setGrade(id, t.getAttribute("data-skill"), t.getAttribute("data-letter")); }
     else if (act === "assign") {
@@ -1094,10 +1110,15 @@ function analyseImport(table) {
     if (!cat) problems.push('category "' + o.categoryText + '" must be Basic, Intermediate, Advanced or Expert');
     if (!lvl) problems.push('level "' + o.levelText + '" must be 1, 2 or 3');
     if (o.orderText && !/^\d+$/.test(o.orderText)) problems.push("sort_order must be a whole number");
+    if (o.tplText && ["yes", "y", "true", "1", "x", "no", "n", "false", "0"].indexOf(o.tplText) === -1) problems.push('in_template "' + o.tplText + '" must be yes or no');
     if (problems.length) { o.status = "bad"; o.note = problems.join("; "); }
     else {
       const k = keyOf(app.id, o.name, cat, lvl);
-      if (have[k]) { o.status = "exists"; o.note = "Already in the library, skipped"; }
+      if (have[k]) {
+        const ex = data.skills.find((x) => keyOf(x.apparatus_id, x.name, x.category, x.level) === k);
+        if (ex && !ex.active) { o.status = "retired"; o.note = "Already in the library but retired (not active). Not uploaded. Reactivate it in Skills Library instead."; }
+        else { o.status = "exists"; o.note = "Already in the library. Not uploaded."; }
+      }
       else {
         have[k] = true;
         const nk = app.id + "|" + cat + "|" + lvl;
@@ -1113,24 +1134,31 @@ function analyseImport(table) {
 function importPreviewHtml() {
   if (imp.done) return '<p class="msg ok" role="status">' + esc(imp.done) + "</p>";
   if (!imp.rows) return "";
-  const c = { new: 0, exists: 0, bad: 0 }; imp.rows.forEach((r) => { c[r.status]++; });
-  const label = { new: "Will add", exists: "Skipped", bad: "Problem" };
-  const color = { new: "#15803D", exists: "#5E5566", bad: "#B91C1C" };
-  const trs = imp.rows.map((r) => '<tr><td>' + r.line + '</td><td style="font-weight:700;color:' + color[r.status] + '">' + label[r.status] + "</td><td>" + esc(r.name) + "</td><td>" + esc(r.apparatusText) + " · " + esc(r.categoryText) + " · " + esc(r.levelText) + "</td><td>" + esc(r.note) + "</td></tr>").join("");
-  return '<section class="card"><h2 style="margin:0 0 6px 0">Preview of ' + esc(imp.file) + "</h2><p>" + c.new + " to add, " + c.exists + " already in the library (skipped), " + c.bad + " with problems (skipped). Nothing is saved until you press the button.</p>" +
-    '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:560px"><thead><tr><th style="text-align:left;padding:6px">Row</th><th style="text-align:left;padding:6px">Result</th><th style="text-align:left;padding:6px">Skill</th><th style="text-align:left;padding:6px">Apparatus · category · level</th><th style="text-align:left;padding:6px">Note</th></tr></thead><tbody>' + trs + "</tbody></table></div>" +
+  const c = { new: 0, exists: 0, retired: 0, bad: 0 }; imp.rows.forEach((r) => { c[r.status]++; });
+  const label = { new: "Will add", exists: "Not uploaded", retired: "Retired", bad: "Problem" };
+  const color = { new: "#15803D", exists: "#5E5566", retired: "#B45309", bad: "#B91C1C" };
+  const td = "padding:8px 12px;vertical-align:top;border-bottom:1px solid #EEE6F2;";
+  const th = "padding:8px 12px;text-align:left;font-size:13px;color:var(--deep);background:var(--soft);";
+  const trs = imp.rows.map((r) => '<tr><td style="' + td + '">' + r.line + '</td><td style="' + td + "font-weight:700;white-space:nowrap;color:" + color[r.status] + '">' + label[r.status] + '</td><td style="' + td + '">' + esc(r.name) + '</td><td style="' + td + 'white-space:nowrap">' + esc(r.apparatusText) + " · " + esc(r.categoryText) + " · " + esc(r.levelText) + '</td><td style="' + td + '">' + esc(r.note) + "</td></tr>").join("");
+  const parts = [c.new + " to add"];
+  if (c.exists) parts.push(c.exists + " already in the library");
+  if (c.retired) parts.push(c.retired + " already in the library but retired");
+  if (c.bad) parts.push(c.bad + " with problems");
+  return '<section class="card" style="padding:16px"><h2 style="margin:0 0 6px 0;color:var(--deep)">Preview of ' + esc(imp.file) + "</h2><p>" + parts.join(", ") + ". Only the ones marked Will add are uploaded, and nothing is saved until you press the button.</p>" +
+    '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:560px"><thead><tr><th scope="col" style="' + th + '">Row</th><th scope="col" style="' + th + '">Result</th><th scope="col" style="' + th + '">Skill</th><th scope="col" style="' + th + '">Apparatus · category · level</th><th scope="col" style="' + th + '">Note</th></tr></thead><tbody>' + trs + "</tbody></table></div>" +
     '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px"><button class="btn2" type="button" id="iGo"' + (c.new ? "" : " disabled") + ">Add " + c.new + " new skill" + (c.new === 1 ? "" : "s") + '</button><button class="btn2 sec" type="button" id="iCancel">Cancel</button></div></section>';
 }
 function importView() {
-  const body = '<section class="card"><h2 style="margin:0 0 6px 0">How to add skills from a file</h2><ol style="margin:0;padding-left:22px;line-height:1.6">' +
-    "<li>Press <b>Download current skills</b>. It opens in Excel or Google Sheets and lists every skill already in the library.</li>" +
-    "<li>Use that list to check a skill isn't already there, then delete the rows you don't need. Keep the top heading row.</li>" +
-    "<li>Add only the new skills as new rows. Apparatus must match a name in Settings. Category is Basic, Intermediate, Advanced or Expert. Level is 1, 2 or 3. In template is yes or no.</li>" +
-    "<li>Save as CSV, choose it below, check the preview, then press the add button. Skills already in the library are skipped, so a repeat upload is safe.</li></ol></section>" +
-    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0"><button class="btn2 sec" type="button" id="iDown">Download current skills</button><button class="btn2 sec" type="button" id="iTpl">Download blank template</button></div>' +
-    '<div class="f" style="margin-bottom:14px"><label for="iFile">Choose your CSV file</label><input id="iFile" type="file" accept=".csv,text/csv"></div>' +
+  const apps = data.apparatus.map((a) => a.name).join(", ") || "none yet";
+  const body = '<section class="card"><h2 style="margin:0 0 8px 0;color:var(--deep)">How to upload skills from a file</h2><ol style="margin:0;padding-left:22px;line-height:1.6">' +
+    "<li>Press <b>Download All Skills</b>. It opens in Excel or Google Sheets and lists every skill already in the library (active and inactive).</li>" +
+    "<li>Use that list to determine if a skill is already in the library. You can then delete the rows you don't need and keep the top header row, or press <b>Download blank Upload template</b> for a clean file.</li>" +
+    "<li>Add the new skills as new rows below the top header row. Apparatus must match an existing apparatus name. Category must be " + CATS.slice(0, -1).join(", ") + " or " + CATS[CATS.length - 1] + ". Level is 1, 2 or 3. In template is yes or no.</li>" +
+    "<li>Save as CSV, press <b>Upload New Skills</b>, check the preview, then press the add button. Skills already in the library are skipped, so a repeat upload is safe.</li></ol>" +
+    '<p class="hint" style="margin:10px 0 0 0">Capital letters do not matter for apparatus, category, in template or skill names. Apparatus available right now: ' + esc(apps) + ". A skill is treated as already in the library when the apparatus, name, category and level all match, including retired skills.</p></section>" +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0"><button class="btn2 sec" type="button" id="iDown">Download All Skills</button><button class="btn2 sec" type="button" id="iTpl">Download blank Upload template</button><button class="btn2" type="button" id="iUp">Upload New Skills</button><input id="iFile" type="file" accept=".csv,text/csv" hidden></div>' +
     '<div id="iPrev">' + importPreviewHtml() + "</div>";
-  return shell("library", "Import skills", "", "library", "", body);
+  return shell("library", "Upload / Download Skills", "", "library", "", body);
 }
 function wireImport() {
   wireShell();
@@ -1149,6 +1177,7 @@ function wireImport() {
     });
   };
   document.getElementById("iDown").addEventListener("click", () => downloadText("skills-" + todayStr() + ".csv", skillsCsv(data.skills)));
+  document.getElementById("iUp").addEventListener("click", () => { const f = document.getElementById("iFile"); f.value = ""; f.click(); });
   document.getElementById("iTpl").addEventListener("click", () => downloadText("skills-template.csv", templateCsv()));
   document.getElementById("iFile").addEventListener("change", async (e) => {
     const f = e.target.files[0]; if (!f) return;
