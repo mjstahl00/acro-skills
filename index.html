@@ -117,6 +117,13 @@
   .topbar2 h1 { margin: 0; font-size: 24px; line-height: 30px; font-weight: 700; flex: 1; min-width: 0; }
   .topbar2 .sub { width: 100%; margin: -4px 0 0 0; font-size: 14px; color: var(--muted); }
   .btn2 { min-height: 48px; display: inline-flex; align-items: center; justify-content: center; padding: 0 22px; border: 0; border-radius: 12px; background: var(--primary); color: #FFFFFF; font-size: 16px; font-weight: 700; text-decoration: none; cursor: pointer; }
+  .btn2 { text-align: center; }
+  .setsec { display: flex; flex-direction: column; gap: 10px; }
+  .setsec h2 { margin: 0; font-size: 18px; color: var(--deep); }
+  .arow { display: flex; gap: 8px; }
+  .arow input { flex: 1; min-width: 0; height: 48px; border: 1.5px solid var(--field); border-radius: 12px; padding: 0 12px; font-size: 16px; background: #FFFFFF; }
+  .arow .rowbtn { min-height: 48px; }
+  .sr { position: absolute; left: -9999px; }
   .btn2.sec { background: #FFFFFF; color: var(--deep); border: 1.5px solid var(--field); font-weight: 600; }
   .btn2[disabled] { opacity: .6; cursor: default; }
   .panel { display: flex; flex-wrap: wrap; gap: 12px; padding: 14px; background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; align-items: flex-end; }
@@ -523,17 +530,43 @@ function wireSkill(idOrNew, fromStudent) {
   });
 }
 
-/* ---------- Settings: apparatus ---------- */
+/* ---------- Settings ---------- */
 function settingsView() {
-  const items = data.apparatus.map((a) => '<div class="item">' + esc(a.name) + "</div>").join("") || '<p class="card">No apparatus yet.</p>';
-  const body = '<p class="hint">Apparatus names feed the dropdowns across the app. They are listed alphabetically.</p>' +
-    '<div class="list">' + items + "</div>" +
-    '<form class="formcard" id="appForm" novalidate><div class="fld"><label class="lbl" for="aName">New apparatus</label><input id="aName" type="text" placeholder="Sling" autocomplete="off"></div>' +
-    '<div class="btnrow"><button class="btn2" type="submit">Add apparatus</button></div></form>';
-  return shell("settings", "Settings", "Apparatus", "home", "", body);
+  const rows = data.apparatus.map((a) =>
+    '<form class="arow" data-id="' + a.id + '"><label class="sr" for="an' + a.id + '">Apparatus name</label><input id="an' + a.id + '" type="text" value="' + esc(a.name) + '" autocomplete="off"><button class="rowbtn" type="submit">Save</button></form>').join("") || '<p class="card">No apparatus yet.</p>';
+  const body =
+    '<section class="setsec"><h2>My name</h2><p class="hint">This is the name shown as "graded by" on everything you grade.</p>' +
+    '<form class="formcard" id="nameForm" novalidate style="margin:0"><div class="fld"><label class="lbl" for="myName">Display name</label><input id="myName" type="text" value="' + esc(state.name) + '" autocomplete="name"></div>' +
+    '<div class="btnrow"><button class="btn2" type="submit">Save name</button></div></form></section>' +
+    '<section class="setsec"><h2>Apparatus</h2><p class="hint">These names feed the dropdowns across the app, listed alphabetically. Change a name and tap Save. It updates everywhere, and no grades are lost.</p>' +
+    '<div class="list" style="max-width:640px">' + rows + "</div>" +
+    '<form class="formcard" id="appForm" novalidate style="margin:0"><div class="fld"><label class="lbl" for="aName">New apparatus</label><input id="aName" type="text" placeholder="Sling" autocomplete="off"></div>' +
+    '<div class="btnrow"><button class="btn2" type="submit">Add apparatus</button></div></form></section>';
+  return shell("settings", "Settings", "", "home", "", body);
 }
 function wireSettings() {
   wireShell();
+  document.getElementById("nameForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("myName").value.trim();
+    if (!name) { setMessage("err", "Type your name first."); render(); return; }
+    const { error } = await sb.from("instructors").upsert({ id: state.session.user.id, name: name });
+    if (error) setMessage("err", "Could not save your name.");
+    else { state.name = name; sdata.instructors[state.session.user.id] = name; setMessage("ok", "Name saved."); }
+    render();
+  });
+  document.querySelectorAll(".arow").forEach((f) => {
+    f.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const id = f.getAttribute("data-id");
+      const name = f.querySelector("input").value.trim();
+      if (!name) { setMessage("err", "An apparatus needs a name."); render(); return; }
+      const { error } = await sb.from("apparatus").update({ name: name }).eq("id", id);
+      if (error) setMessage("err", /duplicate|unique/i.test(error.message || "") ? "Another apparatus already has that name." : "Could not rename the apparatus.");
+      else { setMessage("ok", "Renamed to " + name + "."); await loadApparatus(); }
+      render();
+    });
+  });
   document.getElementById("appForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const name = document.getElementById("aName").value.trim();
