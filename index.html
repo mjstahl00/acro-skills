@@ -144,6 +144,21 @@
   .chk.sm { min-height: 32px; gap: 5px; font-size: 13px; white-space: nowrap; }
   .chk.sm input { width: 16px; height: 16px; }
   .rowbtn.sm { min-height: 32px; padding: 0 10px; font-size: 13px; border-radius: 8px; }
+  .gcard { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; }
+  .gcard .nm { font-size: 16px; line-height: 22px; font-weight: 600; }
+  .gcard .grow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .gcard .chips { display: flex; gap: 8px; }
+  .gcard .side { font-size: 13px; line-height: 18px; color: var(--muted); min-width: 90px; }
+  .ggrid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  @media (min-width: 700px) { .ggrid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); } }
+  .tabs { display: flex; gap: 4px; padding: 4px; background: var(--soft); border-radius: 14px; }
+  .tabs button { flex: 1; height: 44px; border: 0; border-radius: 10px; background: transparent; color: var(--deep); font-size: 15px; font-weight: 600; cursor: pointer; }
+  .tabs button[aria-pressed="true"] { background: var(--primary); color: #FFFFFF; }
+  .two2 { display: flex; flex-wrap: wrap; gap: 12px; }
+  .two2 .f { flex: 1 1 120px; display: flex; flex-direction: column; gap: 6px; }
+  .two2 .f.wide { flex: 2 1 220px; }
+  .two2 .f select, .two2 .f input { height: 48px; border: 1.5px solid var(--field); border-radius: 12px; padding: 0 12px; font-size: 16px; background: #FFFFFF; width: 100%; }
+  .two2 .f label { font-size: 13px; font-weight: 600; color: var(--muted); }
   .tbl { display: none; overflow-x: auto; background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; }
   .tbl table { width: 100%; min-width: 820px; border-collapse: collapse; }
   .tbl th { padding: 0; font-size: 13px; font-weight: 700; color: var(--deep); background: var(--soft); border-bottom: 1px solid var(--border); text-align: left; }
@@ -291,12 +306,10 @@ async function loadApparatus() {
 }
 async function loadSkills() {
   data.loaded = false;
-  if (!lib.apparatusId) { data.skills = []; data.loaded = true; return; }
-  const { data: rows, error } = await sb.from("skills").select("*").eq("apparatus_id", lib.apparatusId).order("sort_order");
+  const { data: rows, error } = await sb.from("skills").select("*").order("sort_order");
   if (error) { setMessage("err", "Could not load skills."); data.skills = []; }
   else data.skills = rows || [];
   data.loaded = true;
-  data.loadedFor = lib.apparatusId;
 }
 function apparatusName(id) {
   const a = data.apparatus.find((x) => x.id === id);
@@ -324,7 +337,7 @@ function wireShell() {
 /* ---------- Skills Library ---------- */
 function visibleSkills() {
   const q = lib.q.trim().toLowerCase();
-  let rows = data.skills.filter((r) => lib.cat === "All" || r.category === lib.cat)
+  let rows = data.skills.filter((r) => r.apparatus_id === lib.apparatusId).filter((r) => lib.cat === "All" || r.category === lib.cat)
     .filter((r) => lib.level === "All" || String(r.level) === lib.level)
     .filter((r) => q === "" || r.name.toLowerCase().indexOf(q) !== -1)
     .filter((r) => lib.retired || r.active);
@@ -343,7 +356,7 @@ function listHtml() {
   if (!data.loaded) return '<p class="hint" aria-busy="true">Loading…</p>';
   const rows = visibleSkills();
   if (!rows.length) {
-    return '<p class="card">' + (data.skills.length ? "No skills match these filters." : "No skills yet for this apparatus. Tap Add skill to create the first one.") + "</p>";
+    return '<p class="card">' + (data.skills.some((x) => x.apparatus_id === lib.apparatusId) ? "No skills match these filters." : "No skills yet for this apparatus. Tap Add skill to create the first one.") + "</p>";
   }
   const cards = rows.map((r) =>
     '<div class="scard"><div class="nm">' + esc(r.name) + '</div>' +
@@ -386,7 +399,7 @@ function refreshList() {
 function wireLibrary() {
   wireShell();
   const on = (id, ev, fn) => { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); };
-  on("fApp", "change", async (e) => { lib.apparatusId = e.target.value; await loadSkills(); render(); });
+  on("fApp", "change", (e) => { lib.apparatusId = e.target.value; render(); });
   on("fCat", "change", (e) => { lib.cat = e.target.value; refreshList(); });
   on("fLvl", "change", (e) => { lib.level = e.target.value; refreshList(); });
   on("fQ", "input", (e) => { lib.q = e.target.value; refreshList(); });
@@ -485,7 +498,7 @@ function wireSkill(idOrNew) {
       render();
       return;
     }
-    if (row.apparatus_id !== lib.apparatusId) lib.apparatusId = row.apparatus_id;
+    lib.apparatusId = row.apparatus_id;
     await loadSkills();
     setMessage("ok", "Saved.");
     go("library");
@@ -518,6 +531,251 @@ function wireSettings() {
   });
 }
 
+/* ---------- Students ---------- */
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function fmtDate(d) {
+  if (!d) return "";
+  const p = String(d).slice(0, 10).split("-");
+  return MONTHS[Number(p[1]) - 1] + " " + Number(p[2]);
+}
+function todayStr() {
+  const n = new Date();
+  return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0") + "-" + String(n.getDate()).padStart(2, "0");
+}
+const sdata = { students: [], log: [], instructors: {}, loaded: false };
+const sui = { q: "", inactive: false, key: "name", dir: "asc" };
+const gui = { apparatusId: null, tab: "mine", q: "", cat: "All", lvl: "All", assignOpen: false, studentId: null };
+
+async function loadStudents() {
+  const a = await sb.from("students").select("*").order("name");
+  const b = await sb.from("skill_log").select("*");
+  const c = await sb.from("instructors").select("id,name");
+  if (a.error || b.error) { setMessage("err", "Could not load students."); }
+  sdata.students = (a.data || []);
+  sdata.log = (b.data || []);
+  sdata.instructors = {};
+  (c.data || []).forEach((i) => { sdata.instructors[i.id] = i.name; });
+  sdata.loaded = true;
+}
+function studentStats(id) {
+  const rows = sdata.log.filter((l) => l.student_id === id);
+  const graded = rows.filter((l) => l.grade);
+  const last = graded.reduce((m, l) => (l.graded_on && l.graded_on > m ? l.graded_on : m), "");
+  return { total: rows.length, graded: graded.length, last: last };
+}
+function visibleStudents() {
+  const q = sui.q.trim().toLowerCase();
+  let rows = sdata.students.filter((s) => sui.inactive || s.active).filter((s) => q === "" || s.name.toLowerCase().indexOf(q) !== -1)
+    .map((s) => Object.assign({}, s, studentStats(s.id)));
+  const dir = sui.dir === "asc" ? 1 : -1;
+  rows.sort((a, b) => {
+    if (sui.key === "name") return a.name.localeCompare(b.name) * dir;
+    let x, y;
+    if (sui.key === "graded") { x = a.graded; y = b.graded; }
+    else if (sui.key === "last") { x = a.last || ""; y = b.last || ""; }
+    else { x = a.active ? 1 : 0; y = b.active ? 1 : 0; }
+    if (x === y) return a.name.localeCompare(b.name);
+    return (x > y ? 1 : -1) * dir;
+  });
+  return rows;
+}
+function studentListHtml() {
+  const rows = visibleStudents();
+  if (!rows.length) return '<p class="card">' + (sdata.students.length ? "No students match." : "No students yet. Tap Add student to create the first one.") + "</p>";
+  const cards = rows.map((s) =>
+    '<a class="scard" style="text-decoration:none;color:inherit" href="#/student/' + s.id + '"><div class="nm">' + esc(s.name) + (s.active ? "" : ' <span class="hint">(inactive)</span>') + "</div>" +
+    '<div class="meta">' + (s.total ? s.graded + " of " + s.total + " graded" + (s.last ? " · last " + fmtDate(s.last) : "") : "Not started") + "</div></a>").join("");
+  const cols = [["name", "Name"], ["graded", "Skills graded"], ["last", "Last graded"], ["active", "Status"]];
+  const head = cols.map((c) => '<th scope="col" aria-sort="' + (sui.key === c[0] ? (sui.dir === "asc" ? "ascending" : "descending") : "none") + '"><button type="button" data-act="ssort" data-key="' + c[0] + '"><span>' + c[1] + '</span><span aria-hidden="true" style="font-size:11px">' + (sui.key === c[0] ? (sui.dir === "asc" ? "▲" : "▼") : "") + "</span></button></th>").join("");
+  const trs = rows.map((s) =>
+    '<tr><td style="font-weight:600"><a href="#/student/' + s.id + '" style="color:inherit">' + esc(s.name) + "</a></td><td>" + (s.total ? s.graded + " of " + s.total : "Not started") + "</td><td>" + (s.last ? fmtDate(s.last) : "") + "</td><td>" + (s.active ? "Active" : "Inactive") + "</td></tr>").join("");
+  return '<div class="cards">' + cards + '</div><div class="tbl"><table style="min-width:640px"><thead><tr>' + head + "</tr></thead><tbody>" + trs + "</tbody></table></div>";
+}
+function studentsView() {
+  const body = '<div class="panel"><div class="f wide"><label for="sQ">Search by name</label><input id="sQ" type="search" value="' + esc(sui.q) + '" placeholder="Type part of a name"></div>' +
+    '<label class="chk"><input id="sInact" type="checkbox"' + (sui.inactive ? " checked" : "") + ">Show inactive students</label></div>" +
+    '<div id="studentList">' + studentListHtml() + "</div>";
+  return shell("students", "Students", sdata.students.length ? "" : "", "home", '<a class="btn2" href="#/student/new">Add student</a>', body);
+}
+function wireStudents() {
+  wireShell();
+  const list = document.getElementById("studentList");
+  const redo = () => { list.innerHTML = studentListHtml(); };
+  document.getElementById("sQ").addEventListener("input", (e) => { sui.q = e.target.value; redo(); });
+  document.getElementById("sInact").addEventListener("change", (e) => { sui.inactive = e.target.checked; redo(); });
+  list.addEventListener("click", (e) => {
+    const t = e.target.closest('[data-act="ssort"]');
+    if (!t) return;
+    const k = t.getAttribute("data-key");
+    if (sui.key === k) sui.dir = sui.dir === "asc" ? "desc" : "asc"; else { sui.key = k; sui.dir = "asc"; }
+    redo();
+  });
+}
+
+/* ---------- Add student ---------- */
+function addStudentView() {
+  const rows = data.apparatus.map((a, i) =>
+    '<div style="display:flex;flex-direction:column;gap:6px;padding:8px 0;border-top:1px solid #EEE6F2">' +
+    '<label class="chk"><input id="ap' + i + '" type="checkbox"' + (i === 0 ? " checked" : "") + ' data-app="' + a.id + '"><span style="font-weight:600;font-size:16px">' + esc(a.name) + "</span></label>" +
+    '<div class="fld" style="padding-left:32px"><label class="lbl" for="ct' + i + '">Category for ' + esc(a.name) + '</label><select id="ct' + i + '">' + optionsHtml(CATS.map((c) => ({ value: c, label: c })), "Basic") + "</select></div></div>").join("");
+  const body = '<form class="formcard" id="stuForm" novalidate>' +
+    '<div class="fld"><label class="lbl" for="sName">Student name</label><input id="sName" type="text" autocomplete="off"></div>' +
+    '<label class="chk" style="align-items:flex-start"><input id="sAct" type="checkbox" checked><span>Active<small style="display:block;color:#5E5566;font-size:13px;line-height:18px">Inactive students are hidden from the list but keep their grades.</small></span></label>' +
+    '<fieldset style="margin:0;padding:12px 14px;border:1.5px solid var(--border);border-radius:14px"><legend style="padding:0 6px;font-size:15px;font-weight:700;color:var(--deep)">Start them on</legend>' + (rows || '<p class="hint">Add an apparatus in Settings first.</p>') +
+    '<p class="hint" style="margin-top:8px">Tick every apparatus to start. Saving adds the skills marked In template for each category chosen. To add another template later, open the student and tap Assign a template.</p></fieldset>' +
+    '<div class="btnrow"><button class="btn2" type="submit" id="sSave">Save student</button><a class="btn2 sec" href="#/students">Cancel</a></div></form>';
+  return shell("students", "Add student", "", "students", "", body);
+}
+function wireAddStudent() {
+  wireShell();
+  document.getElementById("stuForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("sName").value.trim();
+    if (!name) { setMessage("err", "Enter the student's name."); render(); return; }
+    document.getElementById("sSave").disabled = true;
+    const ins = await sb.from("students").insert({ name: name, active: document.getElementById("sAct").checked }).select().single();
+    if (ins.error || !ins.data) { setMessage("err", "Could not save the student."); render(); return; }
+    let added = 0, failed = false;
+    for (let i = 0; i < data.apparatus.length; i++) {
+      const cb = document.getElementById("ap" + i);
+      if (cb && cb.checked) {
+        const r = await sb.rpc("assign_skills", { p_student_id: ins.data.id, p_apparatus_id: cb.getAttribute("data-app"), p_category: document.getElementById("ct" + i).value });
+        if (r.error) failed = true; else added += Number(r.data) || 0;
+      }
+    }
+    await loadStudents();
+    setMessage(failed ? "err" : "ok", failed ? name + " was saved, but some skills could not be assigned. Open the student and use Assign a template." : name + " added with " + added + " skills.");
+    go("student/" + ins.data.id);
+  });
+}
+
+/* ---------- Student grading page ---------- */
+function skillById(id) { return data.skills.find((s) => s.id === id); }
+function chipsHtml(skillId, grade, name) {
+  return ["A", "B", "C"].map((l) => {
+    const on = grade === l;
+    const pal = { A: ["#DCFCE7", "#15803D", "#14532D"], B: ["#FEF3C7", "#B45309", "#713F12"], C: ["#FEE2E2", "#B91C1C", "#7F1D1D"] }[l];
+    const st = "width:52px;height:46px;border-radius:12px;padding:0;cursor:pointer;font-family:inherit;font-size:18px;font-weight:700;border:2px solid " + (on ? pal[1] : "#CFC3D6") + ";background:" + (on ? pal[0] : "#FFFFFF") + ";color:" + (on ? pal[2] : "#5E5566");
+    return '<button type="button" data-act="grade" data-skill="' + skillId + '" data-letter="' + l + '" aria-pressed="' + on + '" aria-label="Grade ' + l + " for " + esc(name) + '" style="' + st + '">' + l + "</button>";
+  }).join("");
+}
+function gradeCard(sk, row, find) {
+  const g = row ? row.grade || "" : "";
+  let right;
+  if (find) right = esc(sk.category) + "<br>Level " + sk.level;
+  else if (g) right = "Graded " + fmtDate(row.graded_on) + (row.graded_by && sdata.instructors[row.graded_by] ? "<br><b style=\"color:#51165F\">by " + esc(sdata.instructors[row.graded_by]) + "</b>" : "");
+  else right = "Not graded yet";
+  return '<div class="gcard"><div class="nm">' + esc(sk.name) + '</div><div class="grow"><div class="chips" role="group" aria-label="Grade for ' + esc(sk.name) + '">' + chipsHtml(sk.id, g, sk.name) + '</div><div class="side" style="text-align:' + (find ? "center" : "right") + '">' + right + "</div></div></div>";
+}
+function gradeBodyHtml(student) {
+  const appId = gui.apparatusId;
+  const myRows = sdata.log.filter((l) => l.student_id === student.id);
+  if (gui.tab === "mine") {
+    const items = myRows.map((l) => ({ row: l, sk: skillById(l.skill_id) })).filter((x) => x.sk && x.sk.apparatus_id === appId);
+    if (!items.length) return '<p class="card">No skills for this apparatus yet. Use Assign a template below, or the Find a skill tab.</p>' + assignHtml();
+    const groups = {};
+    items.forEach((x) => { const k = x.sk.category + "|" + x.sk.level; (groups[k] = groups[k] || { cat: x.sk.category, lvl: x.sk.level, items: [] }).items.push(x); });
+    const ordered = Object.keys(groups).map((k) => groups[k]).sort((a, b) => (CATS.indexOf(a.cat) - CATS.indexOf(b.cat)) || (a.lvl - b.lvl));
+    const html = ordered.map((g) => {
+      g.items.sort((a, b) => (a.sk.sort_order - b.sk.sort_order) || a.sk.name.localeCompare(b.sk.name));
+      const done = g.items.filter((x) => x.row.grade).length;
+      return '<section style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px"><h2 style="margin:0;font-size:16px;color:var(--deep)">' + esc(g.cat) + " · Level " + g.lvl + '</h2><span class="hint">' + done + " of " + g.items.length + " graded</span></div>" +
+        '<div class="ggrid">' + g.items.map((x) => gradeCard(x.sk, x.row, false)).join("") + "</div></section>";
+    }).join("");
+    return html + assignHtml();
+  }
+  const q = gui.q.trim().toLowerCase();
+  const list = data.skills.filter((s) => s.apparatus_id === appId && s.active)
+    .filter((s) => gui.cat === "All" || s.category === gui.cat).filter((s) => gui.lvl === "All" || String(s.level) === gui.lvl)
+    .filter((s) => q === "" || s.name.toLowerCase().indexOf(q) !== -1)
+    .sort((a, b) => (CATS.indexOf(a.category) - CATS.indexOf(b.category)) || (a.level - b.level) || (a.sort_order - b.sort_order));
+  const cards = list.map((s) => gradeCard(s, myRows.find((l) => l.skill_id === s.id), true)).join("");
+  return '<p class="hint" style="text-align:center">Grading a skill here adds it to their list.</p>' +
+    (cards ? '<div class="ggrid">' + cards + "</div>" : '<p class="card">No skills match.</p>') +
+    '<a class="btn2 sec" style="border-style:dashed;border-color:#9032A8" href="#/skill/new">New skill</a>';
+}
+function assignHtml() {
+  const apps = optionsHtml(data.apparatus.map((a) => ({ value: a.id, label: a.name })), gui.apparatusId);
+  return '<div style="display:flex;flex-direction:column;gap:12px;padding-top:8px"><button type="button" class="btn2 sec" style="border-style:dashed;border-color:#9032A8" data-act="toggleAssign" aria-expanded="' + gui.assignOpen + '">Assign a template</button>' +
+    (gui.assignOpen ? '<div class="formcard" style="margin:0"><div class="fld"><label class="lbl" for="tApp">Apparatus</label><select id="tApp">' + apps + '</select></div>' +
+      '<div class="fld"><label class="lbl" for="tCat">Category</label><select id="tCat">' + optionsHtml(CATS.map((c) => ({ value: c, label: c })), "Basic") + "</select></div>" +
+      '<p class="hint">Adds the skills marked In template that they don\'t have yet. Anything already graded is kept, so it is safe to run again.</p>' +
+      '<button class="btn2" type="button" data-act="assign">Assign</button></div>' : "") + "</div>";
+}
+function gradeView(id) {
+  const st = sdata.students.find((s) => s.id === id);
+  if (!st) return shell("students", "Student", "", "students", "", '<p class="card">That student was not found. <a href="#/students">Back to students</a></p>');
+  if (gui.studentId !== id) { gui.studentId = id; gui.tab = "mine"; gui.q = ""; gui.cat = "All"; gui.lvl = "All"; gui.assignOpen = false; }
+  if (!gui.apparatusId || !data.apparatus.some((a) => a.id === gui.apparatusId)) {
+    const withRows = sdata.log.filter((l) => l.student_id === id).map((l) => skillById(l.skill_id)).filter(Boolean)[0];
+    gui.apparatusId = withRows ? withRows.apparatus_id : (data.apparatus[0] && data.apparatus[0].id) || null;
+  }
+  const stats = studentStats(id);
+  const apps = optionsHtml(data.apparatus.map((a) => ({ value: a.id, label: a.name })), gui.apparatusId);
+  const body = '<div class="panel" style="flex-direction:column;align-items:stretch"><div class="f" style="flex:none"><label for="gApp">Apparatus</label><select id="gApp">' + apps + "</select></div>" +
+    '<div class="tabs" role="group" aria-label="View"><button type="button" data-act="tab" data-tab="mine" aria-pressed="' + (gui.tab === "mine") + '">Their skills</button><button type="button" data-act="tab" data-tab="find" aria-pressed="' + (gui.tab === "find") + '">Find a skill</button></div>' +
+    (gui.tab === "find" ? '<div class="two2"><div class="f wide"><label for="gQ">Search the library</label><input id="gQ" type="search" value="' + esc(gui.q) + '" placeholder="Type part of a skill name"></div>' +
+      '<div class="f"><label for="gCat">Category</label><select id="gCat">' + optionsHtml([{ value: "All", label: "All" }].concat(CATS.map((c) => ({ value: c, label: c }))), gui.cat) + "</select></div>" +
+      '<div class="f"><label for="gLvl">Level</label><select id="gLvl">' + optionsHtml([{ value: "All", label: "All" }, { value: "1", label: "1" }, { value: "2", label: "2" }, { value: "3", label: "3" }], gui.lvl) + "</select></div></div>" : "") +
+    "</div>" + '<div id="gradeBody" style="display:flex;flex-direction:column;gap:18px">' + gradeBodyHtml(st) + "</div>";
+  return shell("students", st.name, stats.graded + " of " + stats.total + " graded", "students", "", body);
+}
+function refreshGrade(id) {
+  const st = sdata.students.find((s) => s.id === id);
+  const el = document.getElementById("gradeBody");
+  if (el && st) el.innerHTML = gradeBodyHtml(st);
+  const sub = document.querySelector(".topbar2 .sub");
+  if (sub) { const s = studentStats(id); sub.textContent = s.graded + " of " + s.total + " graded"; }
+}
+function wireGrade(id) {
+  wireShell();
+  const on = (sel, ev, fn) => { const el = document.querySelector(sel); if (el) el.addEventListener(ev, fn); };
+  on("#gApp", "change", (e) => { gui.apparatusId = e.target.value; render(); });
+  on("#gQ", "input", (e) => { gui.q = e.target.value; refreshGrade(id); });
+  on("#gCat", "change", (e) => { gui.cat = e.target.value; refreshGrade(id); });
+  on("#gLvl", "change", (e) => { gui.lvl = e.target.value; refreshGrade(id); });
+  document.querySelector(".page").addEventListener("click", async (e) => {
+    const t = e.target.closest("[data-act]");
+    if (!t) return;
+    const act = t.getAttribute("data-act");
+    if (act === "tab") { gui.tab = t.getAttribute("data-tab"); render(); }
+    else if (act === "toggleAssign") { gui.assignOpen = !gui.assignOpen; refreshGrade(id); }
+    else if (act === "grade") { await setGrade(id, t.getAttribute("data-skill"), t.getAttribute("data-letter")); }
+    else if (act === "assign") {
+      t.disabled = true;
+      const r = await sb.rpc("assign_skills", { p_student_id: id, p_apparatus_id: document.getElementById("tApp").value, p_category: document.getElementById("tCat").value });
+      if (r.error) setMessage("err", "Could not assign that template.");
+      else {
+        const n = Number(r.data) || 0;
+        setMessage("ok", n ? "Added " + n + " " + document.getElementById("tCat").value + " skills." : "Nothing to add. They already have every skill in that template.");
+        gui.apparatusId = document.getElementById("tApp").value;
+        await loadStudents();
+      }
+      gui.assignOpen = false;
+      render();
+    }
+  });
+}
+async function setGrade(studentId, skillId, letter) {
+  const row = sdata.log.find((l) => l.student_id === studentId && l.skill_id === skillId);
+  const uid = state.session.user.id;
+  if (row) {
+    const clear = row.grade === letter;
+    const patch = clear ? { grade: null, graded_on: null, graded_by: null } : { grade: letter, graded_on: todayStr(), graded_by: uid };
+    const before = Object.assign({}, row);
+    Object.assign(row, patch);
+    refreshGrade(studentId);
+    const { error } = await sb.from("skill_log").update(patch).eq("id", row.id);
+    if (error) { Object.assign(row, before); setMessage("err", "Could not save that grade."); render(); }
+  } else {
+    const rec = { student_id: studentId, skill_id: skillId, grade: letter, graded_on: todayStr(), graded_by: uid };
+    const { data: made, error } = await sb.from("skill_log").insert(rec).select().single();
+    if (error || !made) { setMessage("err", "Could not save that grade."); render(); return; }
+    sdata.log.push(made);
+    refreshGrade(studentId);
+  }
+}
+
 /* ---------- Stub for screens not built yet ---------- */
 function stubView(r) {
   return shell(r, titles[r] || "Not found", "", "home", "", '<div class="card">This screen is coming next.</div>');
@@ -542,35 +800,46 @@ async function render() {
   const r = route();
   const parts = r.split("/");
   const token = ++renderToken;
-  if (r === "home" || (!titles[parts[0]] && parts[0] !== "skill")) {
+  const known = ["library", "skill", "settings", "students", "student", "log"];
+  if (r === "home" || known.indexOf(parts[0]) === -1) {
     app.innerHTML = homeView();
     document.getElementById("signout").addEventListener("click", signOut);
     return;
   }
-  if (parts[0] === "library" || parts[0] === "skill" || parts[0] === "settings") {
+  if (parts[0] !== "log") {
     if (!data.apparatus.length) { await loadApparatus(); }
     if (token !== renderToken) return;
-    if (parts[0] !== "settings" && (!data.loaded || data.loadedFor !== lib.apparatusId)) {
-      await loadSkills();
-      if (token !== renderToken) return;
+    if (!data.loaded) { await loadSkills(); if (token !== renderToken) return; }
+    if (parts[0] === "students" || parts[0] === "student") {
+      if (!sdata.loaded || parts[0] === "students" || (parts[1] && !sdata.students.some((x) => x.id === parts[1]) && parts[1] !== "new")) {
+        await loadStudents();
+        if (token !== renderToken) return;
+      }
     }
   }
   if (parts[0] === "library") {
     app.innerHTML = libraryView();
     wireLibrary();
-    state.message = null;
   } else if (parts[0] === "skill") {
     app.innerHTML = skillView(parts[1] || "new");
     wireSkill(parts[1] || "new");
-    state.message = null;
   } else if (parts[0] === "settings") {
     app.innerHTML = settingsView();
     wireSettings();
-    state.message = null;
+  } else if (parts[0] === "students") {
+    app.innerHTML = studentsView();
+    wireStudents();
+  } else if (parts[0] === "student" && parts[1] === "new") {
+    app.innerHTML = addStudentView();
+    wireAddStudent();
+  } else if (parts[0] === "student") {
+    app.innerHTML = gradeView(parts[1]);
+    wireGrade(parts[1]);
   } else {
     app.innerHTML = stubView(parts[0]);
     wireShell();
   }
+  state.message = null;
 }
 let renderToken = 0;
 
@@ -647,6 +916,9 @@ async function signOut() {
   data.skills = [];
   data.loaded = false;
   lib.apparatusId = null;
+  sdata.loaded = false;
+  sdata.students = [];
+  sdata.log = [];
   setMessage(null);
   go("home");
 }
