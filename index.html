@@ -137,6 +137,14 @@
   .scard .row { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; }
   .scard .acts { display: flex; gap: 8px; }
   .rowbtn { min-height: 44px; padding: 0 16px; border: 1.5px solid var(--field); border-radius: 10px; background: #FFFFFF; color: var(--deep); font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+  .scard { gap: 6px; padding: 10px 12px; }
+  .scard .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .scard .top .nm { flex: 1; min-width: 0; }
+  .scard .bot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 12px; }
+  .scard .checks2 { display: flex; gap: 14px; }
+  .chk.sm { min-height: 32px; gap: 6px; font-size: 14px; }
+  .chk.sm input { width: 18px; height: 18px; }
+  .rowbtn.sm { min-height: 36px; padding: 0 12px; font-size: 13px; border-radius: 9px; }
   .tbl { display: none; overflow-x: auto; background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; }
   .tbl table { width: 100%; min-width: 820px; border-collapse: collapse; }
   .tbl th { padding: 0; font-size: 13px; font-weight: 700; color: var(--deep); background: var(--soft); border-bottom: 1px solid var(--border); text-align: left; }
@@ -339,11 +347,11 @@ function listHtml() {
     return '<p class="card">' + (data.skills.length ? "No skills match these filters." : "No skills yet for this apparatus. Tap Add skill to create the first one.") + "</p>";
   }
   const cards = rows.map((r) =>
-    '<div class="scard"><div class="nm">' + esc(r.name) + "</div>" +
-    '<div class="meta">' + esc(r.category) + " · Level " + r.level + " · Order " + r.sort_order + (r.active ? "" : " · Retired") + "</div>" +
-    '<div class="row"><label class="chk"><input type="checkbox" data-act="tpl" data-id="' + r.id + '"' + (r.in_template ? " checked" : "") + ' aria-label="In template: ' + esc(r.name) + '">In template</label>' +
-    '<label class="chk"><input type="checkbox" data-act="active" data-id="' + r.id + '"' + (r.active ? " checked" : "") + ' aria-label="Active: ' + esc(r.name) + '">Active</label></div>' +
-    '<div class="acts"><a class="rowbtn" href="#/skill/' + r.id + '">Edit</a><button class="rowbtn" type="button" data-act="copy" data-id="' + r.id + '">Copy</button></div></div>').join("");
+    '<div class="scard"><div class="top"><div class="nm">' + esc(r.name) + '</div>' +
+    '<div class="acts"><a class="rowbtn sm" href="#/skill/' + r.id + '">Edit</a><button class="rowbtn sm" type="button" data-act="copy" data-id="' + r.id + '">Copy</button></div></div>' +
+    '<div class="bot"><div class="meta">' + esc(r.category) + " · Level " + r.level + " · Order " + r.sort_order + (r.active ? "" : " · Retired") + "</div>" +
+    '<div class="checks2"><label class="chk sm"><input type="checkbox" data-act="tpl" data-id="' + r.id + '"' + (r.in_template ? " checked" : "") + ' aria-label="In template: ' + esc(r.name) + '">In template</label>' +
+    '<label class="chk sm"><input type="checkbox" data-act="active" data-id="' + r.id + '"' + (r.active ? " checked" : "") + ' aria-label="Active: ' + esc(r.name) + '">Active</label></div></div></div>').join("");
   const cols = [["sort_order", "Order", 80], ["name", "Name", 0], ["category", "Category", 130], ["level", "Level", 90], ["in_template", "In template", 120], ["active", "Active", 100]];
   const head = cols.map((c) =>
     '<th scope="col" aria-sort="' + (lib.key === c[0] ? (lib.dir === "asc" ? "ascending" : "descending") : "none") + '"' + (c[2] ? ' style="width:' + c[2] + 'px"' : "") + '>' +
@@ -355,7 +363,7 @@ function listHtml() {
     '<td><div style="display:flex;gap:8px"><a class="rowbtn" href="#/skill/' + r.id + '">Edit</a><button class="rowbtn" type="button" data-act="copy" data-id="' + r.id + '">Copy</button></div></td></tr>').join("");
   return '<div class="cards">' + cards + "</div>" +
     '<div class="tbl"><table><thead><tr>' + head + '<th scope="col" style="width:170px"><span class="plain">Actions</span></th></tr></thead><tbody>' + trs + "</tbody></table></div>" +
-    '<p class="hint">In template decides which skills "Assign a template" gives a student. Retiring a skill hides it without deleting any grades.</p>';
+    '<p class="hint">Select "In Template" will add that skill to the template for that category which can then be assigned to a student. Retiring a skill hides it without deleting any grades.</p>';
 }
 function libraryView() {
   const apps = optionsHtml(data.apparatus.map((a) => ({ value: a.id, label: a.name })), lib.apparatusId);
