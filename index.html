@@ -102,6 +102,66 @@
   .topbar h1 { margin: 0; font-size: 22px; line-height: 28px; font-weight: 700; }
   .card { width: 100%; padding: 18px; background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; color: var(--muted); font-size: 15px; line-height: 22px; }
   .spacer { margin-top: auto; }
+
+  /* ---- app pages (library, forms, settings) ---- */
+  .nav { display: none; width: 100%; background: #FFFFFF; border-bottom: 1px solid var(--border); }
+  .nav .in { max-width: 1100px; margin: 0 auto; padding: 6px 32px; display: flex; align-items: center; gap: 8px 24px; }
+  .nav .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--deep); font-size: 18px; text-decoration: none; }
+  .nav .brand img { width: 40px; height: 40px; border-radius: 10px; }
+  .nav .links { display: flex; gap: 4px; flex: 1; }
+  .nav .links a { min-height: 44px; display: flex; align-items: center; padding: 0 14px; font-size: 15px; font-weight: 600; color: var(--deep); text-decoration: none; border-bottom: 3px solid transparent; }
+  .nav .links a[aria-current="page"] { border-bottom-color: var(--primary); }
+  .page { width: 100%; max-width: 1100px; margin: 0 auto; padding: calc(16px + env(safe-area-inset-top)) 16px 48px 16px; display: flex; flex-direction: column; gap: 16px; }
+  .topbar2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .topbar2 .back { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: #FFFFFF; flex-shrink: 0; }
+  .topbar2 h1 { margin: 0; font-size: 24px; line-height: 30px; font-weight: 700; flex: 1; min-width: 0; }
+  .topbar2 .sub { width: 100%; margin: -4px 0 0 0; font-size: 14px; color: var(--muted); }
+  .btn2 { min-height: 48px; display: inline-flex; align-items: center; justify-content: center; padding: 0 22px; border: 0; border-radius: 12px; background: var(--primary); color: #FFFFFF; font-size: 16px; font-weight: 700; text-decoration: none; cursor: pointer; }
+  .btn2.sec { background: #FFFFFF; color: var(--deep); border: 1.5px solid var(--field); font-weight: 600; }
+  .btn2[disabled] { opacity: .6; cursor: default; }
+  .panel { display: flex; flex-wrap: wrap; gap: 12px; padding: 14px; background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; align-items: flex-end; }
+  .panel .f { display: flex; flex-direction: column; gap: 6px; flex: 1 1 140px; min-width: 130px; }
+  .panel .f.wide { flex: 2 1 220px; }
+  .f label, .formcard label.lbl { font-size: 13px; font-weight: 600; color: var(--muted); }
+  .f select, .f input[type=search], .f input[type=text], .f input[type=number], .f textarea,
+  .formcard select, .formcard input[type=text], .formcard input[type=number], .formcard textarea {
+    height: 48px; border: 1.5px solid var(--field); border-radius: 12px; padding: 0 12px; font-size: 16px; color: var(--text); background: #FFFFFF; width: 100%;
+  }
+  .formcard textarea { height: auto; padding: 10px 12px; line-height: 22px; resize: vertical; }
+  .chk { min-height: 44px; display: flex; align-items: center; gap: 10px; font-size: 15px; }
+  .chk input { width: 22px; height: 22px; accent-color: var(--primary); flex-shrink: 0; margin: 0; }
+  .cards { display: flex; flex-direction: column; gap: 10px; }
+  .scard { display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; }
+  .scard .nm { font-size: 16px; line-height: 22px; font-weight: 600; }
+  .scard .meta { font-size: 13px; color: var(--muted); }
+  .scard .row { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; }
+  .scard .acts { display: flex; gap: 8px; }
+  .rowbtn { min-height: 44px; padding: 0 16px; border: 1.5px solid var(--field); border-radius: 10px; background: #FFFFFF; color: var(--deep); font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+  .tbl { display: none; overflow-x: auto; background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; }
+  .tbl table { width: 100%; min-width: 820px; border-collapse: collapse; }
+  .tbl th { padding: 0; font-size: 13px; font-weight: 700; color: var(--deep); background: var(--soft); border-bottom: 1px solid var(--border); text-align: left; }
+  .tbl th button { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border: 0; background: transparent; color: var(--deep); font-size: 13px; font-weight: 700; cursor: pointer; text-align: left; }
+  .tbl th span.plain { display: block; padding: 12px 14px; }
+  .tbl td { padding: 8px 14px; font-size: 15px; line-height: 22px; border-bottom: 1px solid #EEE6F2; vertical-align: middle; }
+  .tbl td input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--primary); }
+  .hint { margin: 0; font-size: 14px; line-height: 20px; color: var(--muted); }
+  .formcard { display: flex; flex-direction: column; gap: 16px; padding: 18px; background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; max-width: 640px; }
+  .formcard .fld { display: flex; flex-direction: column; gap: 6px; }
+  .formcard .two { display: flex; flex-wrap: wrap; gap: 14px; }
+  .formcard .two .fld { flex: 1 1 140px; }
+  .formcard .checks { display: flex; flex-direction: column; gap: 4px; padding: 6px 14px; border: 1.5px solid var(--border); border-radius: 14px; }
+  .formcard .checks small { display: block; color: var(--muted); font-size: 13px; line-height: 18px; }
+  .btnrow { display: flex; flex-wrap: wrap; gap: 12px; max-width: 640px; }
+  .list { display: flex; flex-direction: column; gap: 10px; max-width: 640px; }
+  .item { padding: 14px 16px; background: #FFFFFF; border: 1px solid var(--border); border-radius: 14px; font-size: 16px; font-weight: 600; }
+  @media (min-width: 900px) {
+    .nav { display: block; }
+    .page { padding: 24px 32px 48px 32px; }
+    .tbl { display: block; }
+    .cards { display: none; }
+    .topbar2 .back { display: none; }
+    .topbar2 h1 { font-size: 28px; line-height: 34px; }
+  }
   .foot { margin: auto 0 0 0; font-size: 13px; line-height: 18px; color: var(--muted); text-align: center; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -203,16 +263,261 @@ function homeView() {
 }
 
 const titles = { students: "Students", library: "Skills Library", log: "Log", settings: "Settings" };
+const CATS = ["Basic", "Intermediate", "Advanced", "Expert"];
+
+/* ---------- Data ---------- */
+const data = {
+  apparatus: [],
+  skills: [],          // skills of the chosen apparatus
+  loaded: false,
+  loadedFor: null
+};
+const lib = { apparatusId: null, cat: "Basic", level: "All", q: "", retired: false, key: "level", dir: "asc" };
+
+async function loadApparatus() {
+  const { data: rows, error } = await sb.from("apparatus").select("id,name").order("name");
+  if (error) { setMessage("err", "Could not load apparatus."); return; }
+  data.apparatus = rows || [];
+  if (!lib.apparatusId || !data.apparatus.some((a) => a.id === lib.apparatusId)) {
+    lib.apparatusId = data.apparatus.length ? data.apparatus[0].id : null;
+  }
+}
+async function loadSkills() {
+  data.loaded = false;
+  if (!lib.apparatusId) { data.skills = []; data.loaded = true; return; }
+  const { data: rows, error } = await sb.from("skills").select("*").eq("apparatus_id", lib.apparatusId).order("sort_order");
+  if (error) { setMessage("err", "Could not load skills."); data.skills = []; }
+  else data.skills = rows || [];
+  data.loaded = true;
+  data.loadedFor = lib.apparatusId;
+}
+function apparatusName(id) {
+  const a = data.apparatus.find((x) => x.id === id);
+  return a ? a.name : "";
+}
+function optionsHtml(list, selected) {
+  return list.map((o) => '<option value="' + esc(o.value) + '"' + (String(o.value) === String(selected) ? " selected" : "") + ">" + esc(o.label) + "</option>").join("");
+}
+
+/* ---------- Shell for the inner pages ---------- */
+const backIcon = '<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#51165F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>';
+function shell(active, title, sub, backTo, actionHtml, body) {
+  const link = (k, label) => '<a href="#/' + k + '"' + (active === k ? ' aria-current="page"' : "") + ">" + label + "</a>";
+  return '<div class="nav"><div class="in"><a class="brand" href="#/home"><img src="icon-192.png" alt="">Cirque du Sadism</a>' +
+    '<nav class="links" aria-label="Main"><a href="#/home">Home</a>' + link("students", "Students") + link("library", "Skills Library") + link("log", "Log") + link("settings", "Settings") + "</nav>" +
+    '<button class="link" type="button" id="signout2">Sign out</button></div></div>' +
+    '<main class="page"><div class="topbar2"><a class="back" href="#/' + backTo + '" aria-label="Back">' + backIcon + "</a><h1>" + esc(title) + "</h1>" + (actionHtml || "") +
+    (sub ? '<p class="sub">' + esc(sub) + "</p>" : "") + "</div>" + msgHtml() + body + "</main>";
+}
+function wireShell() {
+  const b = document.getElementById("signout2");
+  if (b) b.addEventListener("click", signOut);
+}
+
+/* ---------- Skills Library ---------- */
+function visibleSkills() {
+  const q = lib.q.trim().toLowerCase();
+  let rows = data.skills.filter((r) => lib.cat === "All" || r.category === lib.cat)
+    .filter((r) => lib.level === "All" || String(r.level) === lib.level)
+    .filter((r) => q === "" || r.name.toLowerCase().indexOf(q) !== -1)
+    .filter((r) => lib.retired || r.active);
+  const dir = lib.dir === "asc" ? 1 : -1;
+  const k = lib.key;
+  rows.sort((a, b) => {
+    if (k === "name") return a.name.localeCompare(b.name) * dir;
+    let x = a[k], y = b[k];
+    if (typeof x === "boolean") { x = x ? 1 : 0; y = y ? 1 : 0; }
+    if (x === y) return (a.sort_order - b.sort_order) || a.name.localeCompare(b.name);
+    return (x - y) * dir;
+  });
+  return rows;
+}
+function listHtml() {
+  if (!data.loaded) return '<p class="hint" aria-busy="true">Loading…</p>';
+  const rows = visibleSkills();
+  if (!rows.length) {
+    return '<p class="card">' + (data.skills.length ? "No skills match these filters." : "No skills yet for this apparatus. Tap Add skill to create the first one.") + "</p>";
+  }
+  const cards = rows.map((r) =>
+    '<div class="scard"><div class="nm">' + esc(r.name) + "</div>" +
+    '<div class="meta">' + esc(r.category) + " · Level " + r.level + " · Order " + r.sort_order + (r.active ? "" : " · Retired") + "</div>" +
+    '<div class="row"><label class="chk"><input type="checkbox" data-act="tpl" data-id="' + r.id + '"' + (r.in_template ? " checked" : "") + ' aria-label="In template: ' + esc(r.name) + '">In template</label>' +
+    '<label class="chk"><input type="checkbox" data-act="active" data-id="' + r.id + '"' + (r.active ? " checked" : "") + ' aria-label="Active: ' + esc(r.name) + '">Active</label></div>' +
+    '<div class="acts"><a class="rowbtn" href="#/skill/' + r.id + '">Edit</a><button class="rowbtn" type="button" data-act="copy" data-id="' + r.id + '">Copy</button></div></div>').join("");
+  const cols = [["sort_order", "Order", 80], ["name", "Name", 0], ["category", "Category", 130], ["level", "Level", 90], ["in_template", "In template", 120], ["active", "Active", 100]];
+  const head = cols.map((c) =>
+    '<th scope="col" aria-sort="' + (lib.key === c[0] ? (lib.dir === "asc" ? "ascending" : "descending") : "none") + '"' + (c[2] ? ' style="width:' + c[2] + 'px"' : "") + '>' +
+    '<button type="button" data-act="sort" data-key="' + c[0] + '"><span>' + c[1] + '</span><span aria-hidden="true" style="font-size:11px">' + (lib.key === c[0] ? (lib.dir === "asc" ? "▲" : "▼") : "") + "</span></button></th>").join("");
+  const trs = rows.map((r) =>
+    "<tr><td>" + r.sort_order + '</td><td style="font-weight:600">' + esc(r.name) + (r.active ? "" : ' <span class="hint">(retired)</span>') + "</td><td>" + esc(r.category) + "</td><td>" + r.level + "</td>" +
+    '<td><input type="checkbox" data-act="tpl" data-id="' + r.id + '"' + (r.in_template ? " checked" : "") + ' aria-label="In template: ' + esc(r.name) + '"></td>' +
+    '<td><input type="checkbox" data-act="active" data-id="' + r.id + '"' + (r.active ? " checked" : "") + ' aria-label="Active: ' + esc(r.name) + '"></td>' +
+    '<td><div style="display:flex;gap:8px"><a class="rowbtn" href="#/skill/' + r.id + '">Edit</a><button class="rowbtn" type="button" data-act="copy" data-id="' + r.id + '">Copy</button></div></td></tr>').join("");
+  return '<div class="cards">' + cards + "</div>" +
+    '<div class="tbl"><table><thead><tr>' + head + '<th scope="col" style="width:170px"><span class="plain">Actions</span></th></tr></thead><tbody>' + trs + "</tbody></table></div>" +
+    '<p class="hint">In template decides which skills "Assign a template" gives a student. Retiring a skill hides it without deleting any grades.</p>';
+}
+function libraryView() {
+  const apps = optionsHtml(data.apparatus.map((a) => ({ value: a.id, label: a.name })), lib.apparatusId);
+  const cats = optionsHtml([{ value: "All", label: "All" }].concat(CATS.map((c) => ({ value: c, label: c }))), lib.cat);
+  const lvls = optionsHtml([{ value: "All", label: "All" }, { value: "1", label: "1" }, { value: "2", label: "2" }, { value: "3", label: "3" }], lib.level);
+  const count = data.loaded ? visibleSkills().length + " shown" : "";
+  const add = '<a class="btn2" href="#/skill/new">Add skill</a>';
+  const body = '<div class="panel">' +
+    '<div class="f"><label for="fApp">Apparatus</label><select id="fApp">' + apps + "</select></div>" +
+    '<div class="f"><label for="fCat">Category</label><select id="fCat">' + cats + "</select></div>" +
+    '<div class="f"><label for="fLvl">Level</label><select id="fLvl">' + lvls + "</select></div>" +
+    '<div class="f wide"><label for="fQ">Search by name</label><input id="fQ" type="search" value="' + esc(lib.q) + '" placeholder="Type part of a skill name"></div>' +
+    '<label class="chk"><input id="fRet" type="checkbox"' + (lib.retired ? " checked" : "") + ">Show retired skills</label></div>" +
+    '<div id="skillList">' + listHtml() + "</div>";
+  return shell("library", "Skills Library", count, "home", add, body);
+}
+function refreshList() {
+  const el = document.getElementById("skillList");
+  if (el) el.innerHTML = listHtml();
+}
+function wireLibrary() {
+  wireShell();
+  const on = (id, ev, fn) => { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); };
+  on("fApp", "change", async (e) => { lib.apparatusId = e.target.value; await loadSkills(); render(); });
+  on("fCat", "change", (e) => { lib.cat = e.target.value; refreshList(); });
+  on("fLvl", "change", (e) => { lib.level = e.target.value; refreshList(); });
+  on("fQ", "input", (e) => { lib.q = e.target.value; refreshList(); });
+  on("fRet", "change", (e) => { lib.retired = e.target.checked; refreshList(); });
+  const list = document.getElementById("skillList");
+  list.addEventListener("click", async (e) => {
+    const t = e.target.closest("[data-act]");
+    if (!t) return;
+    const act = t.getAttribute("data-act");
+    if (act === "sort") {
+      const k = t.getAttribute("data-key");
+      if (lib.key === k) lib.dir = lib.dir === "asc" ? "desc" : "asc"; else { lib.key = k; lib.dir = "asc"; }
+      refreshList();
+    } else if (act === "copy") {
+      await copySkill(t.getAttribute("data-id"));
+    }
+  });
+  list.addEventListener("change", async (e) => {
+    const t = e.target.closest("[data-act]");
+    if (!t || t.type !== "checkbox") return;
+    const id = t.getAttribute("data-id");
+    const field = t.getAttribute("data-act") === "tpl" ? "in_template" : "active";
+    const row = data.skills.find((s) => s.id === id);
+    const before = row[field];
+    row[field] = t.checked;
+    const { error } = await sb.from("skills").update({ [field]: t.checked }).eq("id", id);
+    if (error) {
+      row[field] = before;
+      setMessage("err", "Could not save that change.");
+      render();
+    } else {
+      refreshList();
+    }
+  });
+}
+async function copySkill(id) {
+  const src = data.skills.find((s) => s.id === id);
+  if (!src) return;
+  const row = { name: src.name, description: src.description, apparatus_id: src.apparatus_id, category: src.category, level: src.level, sort_order: src.sort_order, active: true, in_template: false };
+  const { data: made, error } = await sb.from("skills").insert(row).select().single();
+  if (error || !made) { setMessage("err", "Could not copy that skill."); render(); return; }
+  data.skills.push(made);
+  setMessage("ok", "Copied. Change what you need and save.");
+  go("skill/" + made.id);
+}
+
+/* ---------- Add / edit skill ---------- */
+function nextOrder(apparatusId, category, level) {
+  const same = data.skills.filter((s) => s.apparatus_id === apparatusId && s.category === category && s.level === Number(level));
+  return same.length ? Math.max.apply(null, same.map((s) => s.sort_order || 0)) + 1 : 1;
+}
+function skillView(idOrNew) {
+  const isNew = idOrNew === "new";
+  const sk = isNew ? null : data.skills.find((s) => s.id === idOrNew);
+  if (!isNew && !sk) {
+    return shell("library", "Skill", "", "library", "", '<p class="card">That skill was not found. <a href="#/library">Back to the library</a></p>');
+  }
+  const v = sk || { name: "", description: "", apparatus_id: lib.apparatusId, category: lib.cat === "All" ? "Basic" : lib.cat, level: lib.level === "All" ? 1 : Number(lib.level), sort_order: null, in_template: false, active: true };
+  const order = v.sort_order === null ? nextOrder(v.apparatus_id, v.category, v.level) : v.sort_order;
+  const body = '<form class="formcard" id="skillForm" novalidate>' +
+    '<div class="fld"><label class="lbl" for="kName">Skill name</label><textarea id="kName" rows="2">' + esc(v.name) + "</textarea></div>" +
+    '<div class="fld"><label class="lbl" for="kDesc">Description (optional)</label><textarea id="kDesc" rows="3">' + esc(v.description || "") + "</textarea></div>" +
+    '<div class="two"><div class="fld"><label class="lbl" for="kApp">Apparatus</label><select id="kApp">' + optionsHtml(data.apparatus.map((a) => ({ value: a.id, label: a.name })), v.apparatus_id) + "</select></div>" +
+    '<div class="fld"><label class="lbl" for="kCat">Category</label><select id="kCat">' + optionsHtml(CATS.map((c) => ({ value: c, label: c })), v.category) + "</select></div>" +
+    '<div class="fld"><label class="lbl" for="kLvl">Level</label><select id="kLvl">' + optionsHtml([1, 2, 3].map((n) => ({ value: n, label: String(n) })), v.level) + "</select></div>" +
+    '<div class="fld"><label class="lbl" for="kOrd">Order within the level</label><input id="kOrd" type="number" value="' + order + '"></div></div>' +
+    '<div class="checks"><label class="chk" style="align-items:flex-start"><input id="kTpl" type="checkbox"' + (v.in_template ? " checked" : "") + '><span>In template<small>Tick to hand this skill out when its category is assigned to a student.</small></span></label>' +
+    '<label class="chk" style="align-items:flex-start"><input id="kAct" type="checkbox"' + (v.active ? " checked" : "") + '><span>Active<small>Untick to retire it. Existing grades are kept.</small></span></label></div>' +
+    '<div class="btnrow"><button class="btn2" type="submit" id="kSave">Save skill</button><a class="btn2 sec" href="#/library">Cancel</a></div></form>';
+  return shell("library", isNew ? "Add skill" : "Edit skill", isNew ? "" : "", "library", "", body);
+}
+function wireSkill(idOrNew) {
+  wireShell();
+  const isNew = idOrNew === "new";
+  const sk = isNew ? null : data.skills.find((s) => s.id === idOrNew);
+  const form = document.getElementById("skillForm");
+  if (!form) return;
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("kName").value.trim();
+    if (!name) { setMessage("err", "Give the skill a name."); render(); return; }
+    const row = {
+      name: name,
+      description: document.getElementById("kDesc").value.trim() || null,
+      apparatus_id: document.getElementById("kApp").value,
+      category: document.getElementById("kCat").value,
+      level: Number(document.getElementById("kLvl").value),
+      sort_order: Number(document.getElementById("kOrd").value) || 1,
+      in_template: document.getElementById("kTpl").checked,
+      active: document.getElementById("kAct").checked
+    };
+    document.getElementById("kSave").disabled = true;
+    const res = isNew ? await sb.from("skills").insert(row).select().single() : await sb.from("skills").update(row).eq("id", sk.id).select().single();
+    if (res.error) {
+      setMessage("err", "Could not save the skill.");
+      render();
+      return;
+    }
+    if (row.apparatus_id !== lib.apparatusId) lib.apparatusId = row.apparatus_id;
+    await loadSkills();
+    setMessage("ok", "Saved.");
+    go("library");
+  });
+}
+
+/* ---------- Settings: apparatus ---------- */
+function settingsView() {
+  const items = data.apparatus.map((a) => '<div class="item">' + esc(a.name) + "</div>").join("") || '<p class="card">No apparatus yet.</p>';
+  const body = '<p class="hint">Apparatus names feed the dropdowns across the app. They are listed alphabetically.</p>' +
+    '<div class="list">' + items + "</div>" +
+    '<form class="formcard" id="appForm" novalidate><div class="fld"><label class="lbl" for="aName">New apparatus</label><input id="aName" type="text" placeholder="Sling" autocomplete="off"></div>' +
+    '<div class="btnrow"><button class="btn2" type="submit">Add apparatus</button></div></form>';
+  return shell("settings", "Settings", "Apparatus", "home", "", body);
+}
+function wireSettings() {
+  wireShell();
+  document.getElementById("appForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("aName").value.trim();
+    if (!name) { setMessage("err", "Type a name first."); render(); return; }
+    const { error } = await sb.from("apparatus").insert({ name: name });
+    if (error) {
+      setMessage("err", /duplicate|unique/i.test(error.message || "") ? "That apparatus already exists." : "Could not add the apparatus.");
+    } else {
+      setMessage("ok", name + " added.");
+      await loadApparatus();
+    }
+    render();
+  });
+}
+
+/* ---------- Stub for screens not built yet ---------- */
 function stubView(r) {
-  return '<main class="screen">' +
-    '<div class="topbar"><a class="back" href="#/home" aria-label="Back to home"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#51165F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></a>' +
-    '<h1>' + esc(titles[r] || "Not found") + "</h1></div>" +
-    '<div class="card">This screen is coming next.</div>' +
-    "</main>";
+  return shell(r, titles[r] || "Not found", "", "home", "", '<div class="card">This screen is coming next.</div>');
 }
 
 /* ---------- Render ---------- */
-function render() {
+async function render() {
   if (!state.ready) {
     app.innerHTML = '<main class="screen" aria-busy="true"></main>';
     return;
@@ -228,13 +533,39 @@ function render() {
     return;
   }
   const r = route();
-  if (r === "home" || !titles[r]) {
+  const parts = r.split("/");
+  const token = ++renderToken;
+  if (r === "home" || (!titles[parts[0]] && parts[0] !== "skill")) {
     app.innerHTML = homeView();
     document.getElementById("signout").addEventListener("click", signOut);
+    return;
+  }
+  if (parts[0] === "library" || parts[0] === "skill" || parts[0] === "settings") {
+    if (!data.apparatus.length) { await loadApparatus(); }
+    if (token !== renderToken) return;
+    if (parts[0] !== "settings" && (!data.loaded || data.loadedFor !== lib.apparatusId)) {
+      await loadSkills();
+      if (token !== renderToken) return;
+    }
+  }
+  if (parts[0] === "library") {
+    app.innerHTML = libraryView();
+    wireLibrary();
+    state.message = null;
+  } else if (parts[0] === "skill") {
+    app.innerHTML = skillView(parts[1] || "new");
+    wireSkill(parts[1] || "new");
+    state.message = null;
+  } else if (parts[0] === "settings") {
+    app.innerHTML = settingsView();
+    wireSettings();
+    state.message = null;
   } else {
-    app.innerHTML = stubView(r);
+    app.innerHTML = stubView(parts[0]);
+    wireShell();
   }
 }
+let renderToken = 0;
 
 /* ---------- Actions ---------- */
 function wireLogin() {
@@ -305,6 +636,10 @@ function wireRecovery() {
 async function signOut() {
   await sb.auth.signOut();
   state.name = "";
+  data.apparatus = [];
+  data.skills = [];
+  data.loaded = false;
+  lib.apparatusId = null;
   setMessage(null);
   go("home");
 }
