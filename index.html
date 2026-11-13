@@ -1144,7 +1144,7 @@ function importPreviewHtml() {
   if (c.exists) parts.push(c.exists + " already in the library");
   if (c.retired) parts.push(c.retired + " already in the library but retired");
   if (c.bad) parts.push(c.bad + " with problems");
-  return '<section class="card" style="padding:16px"><h2 style="margin:0 0 6px 0;color:var(--deep)">Preview of ' + esc(imp.file) + "</h2><p>" + parts.join(", ") + ". Only the ones marked Will add are uploaded, and nothing is saved until you press the button.</p>" +
+  return '<section class="card" style="padding:16px"><h2 style="margin:0 0 6px 0;color:var(--deep)">Preview of ' + esc(imp.file) + "</h2><p>" + parts.join(", ") + ". Only the ones marked <b>Will add</b> are uploaded, and nothing is saved until you press the button.</p>" +
     '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:560px"><thead><tr><th scope="col" style="' + th + '">Row</th><th scope="col" style="' + th + '">Result</th><th scope="col" style="' + th + '">Skill</th><th scope="col" style="' + th + '">Apparatus · category · level</th><th scope="col" style="' + th + '">Note</th></tr></thead><tbody>' + trs + "</tbody></table></div>" +
     '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px"><button class="btn2" type="button" id="iGo"' + (c.new ? "" : " disabled") + ">Add " + c.new + " new skill" + (c.new === 1 ? "" : "s") + '</button><button class="btn2 sec" type="button" id="iCancel">Cancel</button></div></section>';
 }
@@ -1153,9 +1153,9 @@ function importView() {
   const body = '<section class="card"><h2 style="margin:0 0 8px 0;color:var(--deep)">How to upload skills from a file</h2><ol style="margin:0;padding-left:22px;line-height:1.6">' +
     "<li>Press <b>Download All Skills</b>. It opens in Excel or Google Sheets and lists every skill already in the library (active and inactive).</li>" +
     "<li>Use that list to determine if a skill is already in the library. You can then delete the rows you don't need and keep the top header row, or press <b>Download blank Upload template</b> for a clean file.</li>" +
-    "<li>Add the new skills as new rows below the top header row. Apparatus must match an existing apparatus name. Category must be " + CATS.slice(0, -1).join(", ") + " or " + CATS[CATS.length - 1] + ". Level is 1, 2 or 3. In template is yes or no.</li>" +
+    "<li>Add the new skills as new rows below the top header row.<br><b>Apparatus</b> options are " + esc(apps) + ".<br><b>Category</b> options are " + CATS.slice(0, -1).join(", ") + " or " + CATS[CATS.length - 1] + ".<br><b>Level</b> options are 1, 2 or 3.<br><b>In template</b> must be yes or no.</li>" +
     "<li>Save as CSV, press <b>Upload New Skills</b>, check the preview, then press the add button. Skills already in the library are skipped, so a repeat upload is safe.</li></ol>" +
-    '<p class="hint" style="margin:10px 0 0 0">Capital letters do not matter for apparatus, category, in template or skill names. Apparatus available right now: ' + esc(apps) + ". A skill is treated as already in the library when the apparatus, name, category and level all match, including retired skills.</p></section>" +
+    '<p class="hint" style="margin:10px 0 0 0">The text entered in the Apparatus, Category, In template and Skill name fields is not case sensitive.</p></section>' +
     '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0"><button class="btn2 sec" type="button" id="iDown">Download All Skills</button><button class="btn2 sec" type="button" id="iTpl">Download blank Upload template</button><button class="btn2" type="button" id="iUp">Upload New Skills</button><input id="iFile" type="file" accept=".csv,text/csv" hidden></div>' +
     '<div id="iPrev">' + importPreviewHtml() + "</div>";
   return shell("library", "Upload / Download Skills", "", "library", "", body);
