@@ -232,9 +232,9 @@ function msgHtml() {
 const chevron = '<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>';
 const icons = {
   students: '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"></path><path d="M16 4.6a3.5 3.5 0 010 6.8"></path><path d="M18 14.3c2.2.7 3.5 2.6 3.5 5.7"></path></svg>',
-  library: '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h13a1 1 0 011 1v14a1 1 0 01-1 1H5z"></path><path d="M5 4v16"></path><path d="M9 9h6M9 13h6"></path></svg>',
+  library: '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h6a4 4 0 014 4v13a3 3 0 00-3-3H2z"></path><path d="M22 4h-6a4 4 0 00-4 4v13a3 3 0 013-3h7z"></path></svg>',
   log: '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h12M8 12h12M8 18h12"></path><circle cx="4" cy="6" r="1"></circle><circle cx="4" cy="12" r="1"></circle><circle cx="4" cy="18" r="1"></circle></svg>',
-  settings: '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"></path><circle cx="16" cy="7" r="2"></circle><circle cx="8" cy="17" r="2"></circle></svg>'
+  settings: '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"></path></svg>'
 };
 function tile(href, icon, title, sub, primary) {
   return '<a class="tile' + (primary ? " primary" : "") + '" href="#/' + href + '">' +
@@ -451,12 +451,14 @@ function nextOrder(apparatusId, category, level) {
   const same = data.skills.filter((s) => s.apparatus_id === apparatusId && s.category === category && s.level === Number(level));
   return same.length ? Math.max.apply(null, same.map((s) => s.sort_order || 0)) + 1 : 1;
 }
-function skillView(idOrNew) {
+function skillView(idOrNew, fromStudent) {
   const isNew = idOrNew === "new";
+  const backTo = fromStudent ? "student/" + fromStudent : "library";
   const sk = isNew ? null : data.skills.find((s) => s.id === idOrNew);
   if (!isNew && !sk) {
     return shell("library", "Skill", "", "library", "", '<p class="card">That skill was not found. <a href="#/library">Back to the library</a></p>');
   }
+  if (fromStudent && gui.apparatusId) lib.apparatusId = gui.apparatusId;
   const v = sk || { name: "", description: "", apparatus_id: lib.apparatusId, category: lib.cat === "All" ? "Basic" : lib.cat, level: lib.level === "All" ? 1 : Number(lib.level), sort_order: null, in_template: false, active: true };
   const order = v.sort_order === null ? nextOrder(v.apparatus_id, v.category, v.level) : v.sort_order;
   const body = '<form class="formcard" id="skillForm" novalidate>' +
@@ -468,10 +470,10 @@ function skillView(idOrNew) {
     '<div class="fld"><label class="lbl" for="kOrd">Order within the level</label><input id="kOrd" type="number" value="' + order + '"></div></div>' +
     '<div class="checks"><label class="chk" style="align-items:flex-start"><input id="kTpl" type="checkbox"' + (v.in_template ? " checked" : "") + '><span>In template<small>Tick to hand this skill out when its category is assigned to a student.</small></span></label>' +
     '<label class="chk" style="align-items:flex-start"><input id="kAct" type="checkbox"' + (v.active ? " checked" : "") + '><span>Active<small>Untick to retire it. Existing grades are kept.</small></span></label></div>' +
-    '<div class="btnrow"><button class="btn2" type="submit" id="kSave">Save skill</button><a class="btn2 sec" href="#/library">Cancel</a></div></form>';
-  return shell("library", isNew ? "Add skill" : "Edit skill", isNew ? "" : "", "library", "", body);
+    '<div class="btnrow"><button class="btn2" type="submit" id="kSave">Save skill</button><a class="btn2 sec" href="#/' + backTo + '">Cancel</a></div></form>';
+  return shell(fromStudent ? "students" : "library", isNew ? "Add skill" : "Edit skill", fromStudent ? "It will also be added to this student's list." : "", backTo, "", body);
 }
-function wireSkill(idOrNew) {
+function wireSkill(idOrNew, fromStudent) {
   wireShell();
   const isNew = idOrNew === "new";
   const sk = isNew ? null : data.skills.find((s) => s.id === idOrNew);
@@ -500,6 +502,22 @@ function wireSkill(idOrNew) {
     }
     lib.apparatusId = row.apparatus_id;
     await loadSkills();
+    if (isNew && fromStudent && res.data) {
+      const lr = await sb.from("skill_log").insert({ student_id: fromStudent, skill_id: res.data.id }).select().single();
+      if (lr.error || !lr.data) {
+        setMessage("err", "The skill was saved, but it could not be added to the student's list.");
+      } else {
+        sdata.log.push(lr.data);
+        setMessage("ok", row.name + " saved and added to their list.");
+      }
+      gui.apparatusId = row.apparatus_id;
+      gui.tab = "find";
+      gui.q = row.name;
+      gui.cat = "All";
+      gui.lvl = "All";
+      go("student/" + fromStudent);
+      return;
+    }
     setMessage("ok", "Saved.");
     go("library");
   });
@@ -692,7 +710,7 @@ function gradeBodyHtml(student) {
   const cards = list.map((s) => gradeCard(s, myRows.find((l) => l.skill_id === s.id), true)).join("");
   return '<p class="hint" style="text-align:center">Grading a skill here adds it to their list.</p>' +
     (cards ? '<div class="ggrid">' + cards + "</div>" : '<p class="card">No skills match.</p>') +
-    '<a class="btn2 sec" style="border-style:dashed;border-color:#9032A8" href="#/skill/new">New skill</a>';
+    '<a class="btn2 sec" style="border-style:dashed;border-color:#9032A8" href="#/skill/new/' + gui.studentId + '">New skill</a>';
 }
 function assignHtml() {
   const apps = optionsHtml(data.apparatus.map((a) => ({ value: a.id, label: a.name })), gui.apparatusId);
@@ -810,7 +828,7 @@ async function render() {
     if (!data.apparatus.length) { await loadApparatus(); }
     if (token !== renderToken) return;
     if (!data.loaded) { await loadSkills(); if (token !== renderToken) return; }
-    if (parts[0] === "students" || parts[0] === "student") {
+    if (parts[0] === "students" || parts[0] === "student" || (parts[0] === "skill" && parts[2])) {
       if (!sdata.loaded || parts[0] === "students" || (parts[1] && !sdata.students.some((x) => x.id === parts[1]) && parts[1] !== "new")) {
         await loadStudents();
         if (token !== renderToken) return;
@@ -821,8 +839,8 @@ async function render() {
     app.innerHTML = libraryView();
     wireLibrary();
   } else if (parts[0] === "skill") {
-    app.innerHTML = skillView(parts[1] || "new");
-    wireSkill(parts[1] || "new");
+    app.innerHTML = skillView(parts[1] || "new", parts[2]);
+    wireSkill(parts[1] || "new", parts[2]);
   } else if (parts[0] === "settings") {
     app.innerHTML = settingsView();
     wireSettings();
