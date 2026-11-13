@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#9032A8">
+<title>Christine's Cirque du Sadism: Skills</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* To change the background, replace these two files (or change these two lines). */
+  :root {
+    --bg-phone: url(bg-phone.jpg);
+    --bg-web: url(bg-web.jpg);
+    --primary: #9032A8;
+    --deep: #51165F;
+    --soft: #F1E8F5;
+    --text: #1E1A22;
+    --muted: #5E5566;
+    --border: #E2D6E8;
+    --field: #CFC3D6;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--text);
+    background: #FAF7FC var(--bg-phone) center / cover fixed no-repeat;
+    -webkit-text-size-adjust: 100%;
+  }
+  @media (min-width: 700px) {
+    body { background: #FAF7FC var(--bg-web) center top / cover fixed no-repeat; }
+  }
+  a { color: var(--deep); }
+  a:hover { color: var(--primary); }
+  button, input, select { font-family: inherit; }
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 2px;
+  }
+  .screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: calc(28px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom)) 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .logo { display: block; object-fit: contain; }
+  .field { width: 100%; display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 14px; font-weight: 600; }
+  .field input {
+    height: 52px; border: 1.5px solid var(--field); border-radius: 12px;
+    padding: 0 14px; font-size: 16px; color: var(--text); background: #FFFFFF;
+  }
+  .btn {
+    width: 100%; min-height: 54px; display: flex; align-items: center; justify-content: center;
+    border: 0; border-radius: 14px; background: var(--primary); color: #FFFFFF;
+    font-size: 17px; font-weight: 700; cursor: pointer;
+  }
+  .btn[disabled] { opacity: .6; cursor: default; }
+  .link {
+    min-height: 44px; display: inline-flex; align-items: center; padding: 0 8px;
+    border: 0; background: none; color: var(--deep); font-size: 15px; font-weight: 500;
+    text-decoration: underline; cursor: pointer;
+  }
+  .msg { width: 100%; margin: 0; padding: 12px 14px; border-radius: 12px; font-size: 14px; line-height: 20px; font-weight: 600; }
+  .msg.err { background: #FEE2E2; color: #7F1D1D; }
+  .msg.ok { background: #DCFCE7; color: #14532D; }
+  form { width: 100%; display: flex; flex-direction: column; gap: 18px; margin-top: 16px; align-items: center; }
+  .tile {
+    width: 100%; min-height: 76px; display: flex; align-items: center; gap: 14px; padding: 12px 16px;
+    border-radius: 18px; background: #FFFFFF; border: 1px solid var(--border);
+    color: var(--text); text-decoration: none;
+  }
+  .tile:hover { color: var(--text); border-color: var(--primary); }
+  .tile.primary:hover { color: #FFFFFF; }
+  .tile.primary { background: var(--primary); border-color: var(--primary); color: #FFFFFF; }
+  .tile .ico {
+    width: 48px; height: 48px; border-radius: 14px; background: var(--soft);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .tile.primary .ico { background: #7D2493; }
+  .tile .txt { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+  .tile .t1 { font-size: 18px; line-height: 24px; font-weight: 700; }
+  .tile .t2 { font-size: 14px; line-height: 20px; color: var(--muted); }
+  .tile.primary .t2 { color: #F3E6F8; }
+  nav.tiles { width: 100%; display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
+  .who { margin: 8px 0 0 0; font-size: 14px; color: var(--muted); text-align: center; }
+  .topbar { width: 100%; display: flex; align-items: center; gap: 4px; margin-bottom: 12px; }
+  .topbar a.back {
+    width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+    border-radius: 12px; background: #FFFFFF;
+  }
+  .topbar h1 { margin: 0; font-size: 22px; line-height: 28px; font-weight: 700; }
+  .card { width: 100%; padding: 18px; background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; color: var(--muted); font-size: 15px; line-height: 22px; }
+  .spacer { margin-top: auto; }
+  .foot { margin: auto 0 0 0; font-size: 13px; line-height: 18px; color: var(--muted); text-align: center; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ---------- Settings ---------- */
+const SUPABASE_URL = "https://mdselnzobyymsekilngj.supabase.co";
+const SUPABASE_KEY = "sb_publishable_JhQNcvwj8mbB0v0hDiX3VA_gTTD9tlm"; /* publishable key: safe in the browser */
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ---------- State ---------- */
+const state = {
+  ready: false,        // first session check finished
+  session: null,
+  name: "",            // instructor display name
+  recovery: false,     // arrived from a password-reset email
+  busy: false,
+  message: null        // { kind: "err" | "ok", text }
+};
+
+const app = document.getElementById("app");
+
+/* ---------- Helpers ---------- */
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function route() {
+  const h = (location.hash || "").replace(/^#\/?/, "");
+  return h || "home";
+}
+function go(r) {
+  location.hash = "#/" + r;
+}
+function setMessage(kind, text) {
+  state.message = text ? { kind: kind, text: text } : null;
+}
+function msgHtml() {
+  if (!state.message) return "";
+  return '<p class="msg ' + state.message.kind + '" role="' + (state.message.kind === "err" ? "alert" : "status") + '">' + esc(state.message.text) + "</p>";
+}
+
+const chevron = '<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>';
+const icons = {
+  students: '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"></path><path d="M16 4.6a3.5 3.5 0 010 6.8"></path><path d="M18 14.3c2.2.7 3.5 2.6 3.5 5.7"></path></svg>',
+  library: '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h13a1 1 0 011 1v14a1 1 0 01-1 1H5z"></path><path d="M5 4v16"></path><path d="M9 9h6M9 13h6"></path></svg>',
+  log: '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h12M8 12h12M8 18h12"></path><circle cx="4" cy="6" r="1"></circle><circle cx="4" cy="12" r="1"></circle><circle cx="4" cy="18" r="1"></circle></svg>',
+  settings: '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"></path><circle cx="16" cy="7" r="2"></circle><circle cx="8" cy="17" r="2"></circle></svg>'
+};
+function tile(href, icon, title, sub, primary) {
+  return '<a class="tile' + (primary ? " primary" : "") + '" href="#/' + href + '">' +
+    '<span class="ico" style="color:' + (primary ? "#FFFFFF" : "#51165F") + '">' + icon + "</span>" +
+    '<span class="txt"><span class="t1">' + esc(title) + '</span><span class="t2">' + esc(sub) + "</span></span>" +
+    '<span style="color:' + (primary ? "#FFFFFF" : "#51165F") + '">' + chevron + "</span></a>";
+}
+
+/* ---------- Views ---------- */
+function loginView() {
+  return '<main class="screen">' +
+    '<img class="logo" src="logo.png" alt="Christine\'s Cirque du Sadism" width="300" height="300" style="width:300px;height:300px;max-width:80vw;max-height:80vw">' +
+    '<form id="loginForm" novalidate>' +
+    msgHtml() +
+    '<div class="field"><label for="email">Email</label><input id="email" type="email" autocomplete="username" inputmode="email" placeholder="you@example.com"></div>' +
+    '<div class="field"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password"></div>' +
+    '<button class="btn" type="submit"' + (state.busy ? " disabled" : "") + ">Sign in</button>" +
+    '<button class="link" type="button" id="forgot">Forgot password?</button>' +
+    "</form>" +
+    '<p class="foot">Instructor access only</p>' +
+    "</main>";
+}
+
+function recoveryView() {
+  return '<main class="screen">' +
+    '<img class="logo" src="logo.png" alt="Christine\'s Cirque du Sadism" width="220" height="220" style="width:220px;height:220px">' +
+    '<form id="recoveryForm" novalidate>' +
+    '<h1 style="margin:0;font-size:22px">Choose a new password</h1>' +
+    msgHtml() +
+    '<div class="field"><label for="newpw">New password</label><input id="newpw" type="password" autocomplete="new-password"></div>' +
+    '<button class="btn" type="submit"' + (state.busy ? " disabled" : "") + ">Save password</button>" +
+    "</form></main>";
+}
+
+function homeView() {
+  const who = state.name ? "Signed in as " + esc(state.name) : (state.session ? "Signed in" : "");
+  return '<main class="screen">' +
+    '<img class="logo" src="logo.png" alt="Christine\'s Cirque du Sadism" width="250" height="250" style="width:250px;height:250px;max-width:70vw;max-height:70vw">' +
+    '<nav class="tiles" aria-label="Main">' +
+    tile("students", icons.students, "Students", "Grade skills and manage lists", true) +
+    tile("library", icons.library, "Skills Library", "Templates and every skill", false) +
+    tile("log", icons.log, "Log", "Every graded skill, by date", false) +
+    tile("settings", icons.settings, "Settings", "Apparatus list", false) +
+    "</nav>" +
+    '<p class="who">' + who + "</p>" +
+    '<button class="link spacer" type="button" id="signout">Sign out</button>' +
+    "</main>";
+}
+
+const titles = { students: "Students", library: "Skills Library", log: "Log", settings: "Settings" };
+function stubView(r) {
+  return '<main class="screen">' +
+    '<div class="topbar"><a class="back" href="#/home" aria-label="Back to home"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#51165F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></a>' +
+    '<h1>' + esc(titles[r] || "Not found") + "</h1></div>" +
+    '<div class="card">This screen is coming next.</div>' +
+    "</main>";
+}
+
+/* ---------- Render ---------- */
+function render() {
+  if (!state.ready) {
+    app.innerHTML = '<main class="screen" aria-busy="true"></main>';
+    return;
+  }
+  if (state.recovery) {
+    app.innerHTML = recoveryView();
+    wireRecovery();
+    return;
+  }
+  if (!state.session) {
+    app.innerHTML = loginView();
+    wireLogin();
+    return;
+  }
+  const r = route();
+  if (r === "home" || !titles[r]) {
+    app.innerHTML = homeView();
+    document.getElementById("signout").addEventListener("click", signOut);
+  } else {
+    app.innerHTML = stubView(r);
+  }
+}
+
+/* ---------- Actions ---------- */
+function wireLogin() {
+  const form = document.getElementById("loginForm");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+    if (!email || !password) {
+      setMessage("err", "Enter your email and password.");
+      render();
+      return;
+    }
+    state.busy = true;
+    setMessage(null);
+    render();
+    const { error } = await sb.auth.signInWithPassword({ email: email, password: password });
+    state.busy = false;
+    if (error) {
+      setMessage("err", "That email and password did not work.");
+      render();
+      const f = document.getElementById("email");
+      if (f) f.value = email;
+    }
+    /* On success onAuthStateChange takes over. */
+  });
+  document.getElementById("forgot").addEventListener("click", async () => {
+    const email = document.getElementById("email").value.trim();
+    if (!email) {
+      setMessage("err", "Type your email first, then tap Forgot password.");
+      render();
+      return;
+    }
+    const redirectTo = location.origin + location.pathname;
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: redirectTo });
+    setMessage(error ? "err" : "ok", error ? "Could not send the reset email. Try again in a minute." : "If that email has an account, a reset link is on its way.");
+    render();
+    const f = document.getElementById("email");
+    if (f) f.value = email;
+  });
+}
+
+function wireRecovery() {
+  document.getElementById("recoveryForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const pw = document.getElementById("newpw").value;
+    if (pw.length < 8) {
+      setMessage("err", "Use at least 8 characters.");
+      render();
+      return;
+    }
+    state.busy = true;
+    render();
+    const { error } = await sb.auth.updateUser({ password: pw });
+    state.busy = false;
+    if (error) {
+      setMessage("err", "Could not save the new password. Try the reset link again.");
+    } else {
+      state.recovery = false;
+      setMessage("ok", "");
+      setMessage(null);
+      go("home");
+    }
+    render();
+  });
+}
+
+async function signOut() {
+  await sb.auth.signOut();
+  state.name = "";
+  setMessage(null);
+  go("home");
+}
+
+async function loadName() {
+  state.name = "";
+  if (!state.session) return;
+  const { data } = await sb.from("instructors").select("name").eq("id", state.session.user.id).maybeSingle();
+  state.name = data && data.name ? data.name : "";
+}
+
+/* ---------- Start ---------- */
+sb.auth.onAuthStateChange(async (event, session) => {
+  state.session = session;
+  if (event === "PASSWORD_RECOVERY") state.recovery = true;
+  if (session) {
+    setMessage(null);
+    /* Do not call Supabase inside this callback directly; defer it. */
+    setTimeout(async () => { await loadName(); render(); }, 0);
+  } else {
+    state.name = "";
+  }
+  state.ready = true;
+  render();
+});
+
+window.addEventListener("hashchange", render);
+render();
+</script>
+</body>
+</html>

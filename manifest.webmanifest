@@ -1,0 +1,13 @@
+{
+  "name": "Christine's Cirque du Sadism Skills",
+  "short_name": "Skills",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FAF7FC",
+  "theme_color": "#9032A8",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
