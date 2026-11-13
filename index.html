@@ -191,6 +191,25 @@
     .topbar2 .back { display: none; }
     .topbar2 h1 { font-size: 28px; line-height: 34px; }
   }
+  .stugroup { margin: 0 0 22px 0; }
+  .sghead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 8px 0; }
+  .sghead h2 { margin: 0; font-size: 20px; color: var(--deep); }
+  .pickbtn { width: 100%; min-height: 48px; padding: 0 14px; border: 1.5px solid var(--field); border-radius: 10px; background: #FFFFFF; color: var(--text); font-size: 16px; text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+  .pickpop { position: absolute; z-index: 20; top: 100%; left: 0; right: 0; max-height: 320px; overflow-y: auto; margin-top: 4px; padding: 10px 12px; background: #FFFFFF; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 24px rgba(81,22,95,0.18); }
+  .printonly { display: none; }
+  @media print {
+    body { background: #FFFFFF !important; }
+    .nav, .noprint, .topbar2 .back, .foot { display: none !important; }
+    .tbl { display: block !important; border: 0; overflow: visible; }
+    .cards { display: none !important; }
+    .page { padding: 0 !important; margin: 0 !important; }
+    .printonly { display: block; font-size: 12px; margin: 0 0 8px 0; }
+    .tbl table { min-width: 0 !important; font-size: 12px; }
+    .tbl td { padding: 4px 8px; }
+    .pagebreaks .stugroup { break-after: page; page-break-after: always; }
+    .pagebreaks .stugroup:last-child { break-after: auto; page-break-after: auto; }
+    .stugroup { break-inside: avoid-page; }
+  }
   .foot { margin: auto 0 0 0; font-size: 13px; line-height: 18px; color: var(--muted); text-align: center; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -593,7 +612,7 @@ function todayStr() {
   const n = new Date();
   return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0") + "-" + String(n.getDate()).padStart(2, "0");
 }
-const sdata = { students: [], log: [], instructors: {}, loaded: false };
+const sdata = { students: [], log: [], levels: [], instructors: {}, loaded: false };
 const sui = { q: "", inactive: false, key: "name", dir: "asc" };
 const gui = { apparatusId: null, tab: "mine", q: "", cat: "All", lvl: "All", assignOpen: false, studentId: null };
 
@@ -601,12 +620,25 @@ async function loadStudents() {
   const a = await sb.from("students").select("*").order("name");
   const b = await sb.from("skill_log").select("*");
   const c = await sb.from("instructors").select("id,name");
+  const lv = await sb.from("student_levels").select("*");
+  sdata.levels = lv.error ? [] : (lv.data || []);
   if (a.error || b.error) { setMessage("err", "Could not load students."); }
   sdata.students = (a.data || []);
   sdata.log = (b.data || []);
   sdata.instructors = {};
   (c.data || []).forEach((i) => { sdata.instructors[i.id] = i.name; });
   sdata.loaded = true;
+}
+function levelOf(studentId, apparatusId) {
+  const l = sdata.levels.find((x) => x.student_id === studentId && x.apparatus_id === apparatusId);
+  return l ? l.category : "";
+}
+function levelsText(studentId) {
+  return data.apparatus.map((a) => { const c = levelOf(studentId, a.id); return c ? a.name + ": " + c : ""; }).filter(Boolean).join(" · ");
+}
+async function saveLevel(studentId, apparatusId, category) {
+  if (!category) return sb.from("student_levels").delete().eq("student_id", studentId).eq("apparatus_id", apparatusId);
+  return sb.from("student_levels").upsert({ student_id: studentId, apparatus_id: apparatusId, category: category }, { onConflict: "student_id,apparatus_id" });
 }
 function studentStats(id) {
   const rows = sdata.log.filter((l) => l.student_id === id);
@@ -622,7 +654,8 @@ function visibleStudents() {
   rows.sort((a, b) => {
     if (sui.key === "name") return a.name.localeCompare(b.name) * dir;
     let x, y;
-    if (sui.key === "graded") { x = a.graded; y = b.graded; }
+    if (sui.key === "level") { x = levelsText(a.id); y = levelsText(b.id); }
+    else if (sui.key === "graded") { x = a.graded; y = b.graded; }
     else if (sui.key === "last") { x = a.last || ""; y = b.last || ""; }
     else { x = a.active ? 1 : 0; y = b.active ? 1 : 0; }
     if (x === y) return a.name.localeCompare(b.name);
@@ -635,12 +668,12 @@ function studentListHtml() {
   if (!rows.length) return '<p class="card">' + (sdata.students.length ? "No students match." : "No students yet. Tap Add student to create the first one.") + "</p>";
   const cards = rows.map((s) =>
     '<a class="scard" style="text-decoration:none;color:inherit" href="#/student/' + s.id + '"><div class="nm">' + esc(s.name) + (s.active ? "" : ' <span class="hint">(inactive)</span>') + "</div>" +
-    '<div class="meta">' + (s.total ? s.graded + " of " + s.total + " graded" + (s.last ? " · last " + fmtDate(s.last) : "") : "Not started") + "</div></a>").join("");
-  const cols = [["name", "Name"], ["graded", "Skills graded"], ["last", "Last graded"], ["active", "Status"]];
+    '<div class="meta">' + (levelsText(s.id) ? esc(levelsText(s.id)) + " · " : "") + (s.total ? s.graded + " of " + s.total + " graded" + (s.last ? " · last " + fmtDate(s.last) : "") : "Not started") + "</div></a>").join("");
+  const cols = [["name", "Name"], ["level", "Current level"], ["graded", "Skills graded"], ["last", "Last graded"], ["active", "Status"]];
   const head = cols.map((c) => '<th scope="col" aria-sort="' + (sui.key === c[0] ? (sui.dir === "asc" ? "ascending" : "descending") : "none") + '"><button type="button" data-act="ssort" data-key="' + c[0] + '"><span>' + c[1] + '</span><span aria-hidden="true" style="font-size:11px">' + (sui.key === c[0] ? (sui.dir === "asc" ? "▲" : "▼") : "") + "</span></button></th>").join("");
   const trs = rows.map((s) =>
-    '<tr><td style="font-weight:600"><a href="#/student/' + s.id + '" style="color:inherit">' + esc(s.name) + "</a></td><td>" + (s.total ? s.graded + " of " + s.total : "Not started") + "</td><td>" + (s.last ? fmtDate(s.last) : "") + "</td><td>" + (s.active ? "Active" : "Inactive") + "</td></tr>").join("");
-  return '<div class="cards">' + cards + '</div><div class="tbl"><table style="min-width:640px"><thead><tr>' + head + "</tr></thead><tbody>" + trs + "</tbody></table></div>";
+    '<tr><td style="font-weight:600"><a href="#/student/' + s.id + '" style="color:inherit">' + esc(s.name) + "</a></td><td>" + esc(levelsText(s.id)) + "</td><td>" + (s.total ? s.graded + " of " + s.total : "Not started") + "</td><td>" + (s.last ? fmtDate(s.last) : "") + "</td><td>" + (s.active ? "Active" : "Inactive") + "</td></tr>").join("");
+  return '<div class="cards">' + cards + '</div><div class="tbl"><table style="min-width:760px"><thead><tr>' + head + "</tr></thead><tbody>" + trs + "</tbody></table></div>";
 }
 function studentsView() {
   const body = '<div class="panel"><div class="f wide"><label for="sQ">Search by name</label><input id="sQ" type="search" value="' + esc(sui.q) + '" placeholder="Type part of a name"></div>' +
@@ -668,7 +701,7 @@ function addStudentView() {
   const rows = data.apparatus.map((a, i) =>
     '<div style="display:flex;flex-direction:column;gap:6px;padding:8px 0;border-top:1px solid #EEE6F2">' +
     '<label class="chk"><input id="ap' + i + '" type="checkbox"' + (i === 0 ? " checked" : "") + ' data-app="' + a.id + '"><span style="font-weight:600;font-size:16px">' + esc(a.name) + "</span></label>" +
-    '<div class="fld" style="padding-left:32px"><label class="lbl" for="ct' + i + '">Category for ' + esc(a.name) + '</label><select id="ct' + i + '">' + optionsHtml(CATS.map((c) => ({ value: c, label: c })), "Basic") + "</select></div></div>").join("");
+    '<div class="fld" style="padding-left:32px"><label class="lbl" for="ct' + i + '">Starting category for ' + esc(a.name) + ' (also their current level)</label><select id="ct' + i + '">' + optionsHtml(CATS.map((c) => ({ value: c, label: c })), "Basic") + "</select></div></div>").join("");
   const body = '<form class="formcard" id="stuForm" novalidate>' +
     '<div class="fld"><label class="lbl" for="sName">Student name</label><input id="sName" type="text" autocomplete="off"></div>' +
     '<label class="chk" style="align-items:flex-start"><input id="sAct" type="checkbox" checked><span>Active<small style="display:block;color:#5E5566;font-size:13px;line-height:18px">Inactive students are hidden from the list but keep their grades.</small></span></label>' +
@@ -692,6 +725,7 @@ function wireAddStudent() {
       if (cb && cb.checked) {
         const r = await sb.rpc("assign_skills", { p_student_id: ins.data.id, p_apparatus_id: cb.getAttribute("data-app"), p_category: document.getElementById("ct" + i).value });
         if (r.error) failed = true; else added += Number(r.data) || 0;
+        await saveLevel(ins.data.id, cb.getAttribute("data-app"), document.getElementById("ct" + i).value);
       }
     }
     await loadStudents();
@@ -769,14 +803,14 @@ function gradeView(id) {
       '<div class="f"><label for="gCat">Category</label><select id="gCat">' + optionsHtml([{ value: "All", label: "All" }].concat(CATS.map((c) => ({ value: c, label: c }))), gui.cat) + "</select></div>" +
       '<div class="f"><label for="gLvl">Level</label><select id="gLvl">' + optionsHtml([{ value: "All", label: "All" }, { value: "1", label: "1" }, { value: "2", label: "2" }, { value: "3", label: "3" }], gui.lvl) + "</select></div></div>" : "") +
     "</div>" + '<div id="gradeBody" style="display:flex;flex-direction:column;gap:18px">' + gradeBodyHtml(st) + "</div>";
-  return shell("students", st.name, stats.graded + " of " + stats.total + " graded", "students", '<a class="rowbtn" href="#/student/' + id + '/edit">Edit student</a>', body);
+  return shell("students", st.name, (levelsText(id) ? levelsText(id) + " · " : "") + stats.graded + " of " + stats.total + " graded", "students", '<a class="rowbtn" href="#/student/' + id + '/edit">Edit student</a>', body);
 }
 function refreshGrade(id) {
   const st = sdata.students.find((s) => s.id === id);
   const el = document.getElementById("gradeBody");
   if (el && st) el.innerHTML = gradeBodyHtml(st);
   const sub = document.querySelector(".topbar2 .sub");
-  if (sub) { const s = studentStats(id); sub.textContent = s.graded + " of " + s.total + " graded"; }
+  if (sub) { const s = studentStats(id); sub.textContent = (levelsText(id) ? levelsText(id) + " · " : "") + s.graded + " of " + s.total + " graded"; }
 }
 function wireGrade(id) {
   wireShell();
@@ -834,6 +868,9 @@ function editStudentView(id) {
   const body = '<form class="formcard" id="editForm" novalidate>' +
     '<div class="fld"><label class="lbl" for="eName">Student name</label><input id="eName" type="text" autocomplete="off" value="' + esc(st.name) + '"></div>' +
     '<label class="chk" style="align-items:flex-start"><input id="eAct" type="checkbox"' + (st.active ? " checked" : "") + '><span>Active<small style="display:block;color:#5E5566;font-size:13px;line-height:18px">Untick to hide them from the student list. Their grades are kept, and you can make them active again later.</small></span></label>' +
+    '<fieldset style="margin:0;padding:12px 14px;border:1.5px solid var(--border);border-radius:14px"><legend style="padding:0 6px;font-size:15px;font-weight:700;color:var(--deep)">Current level</legend>' +
+    '<p class="hint" style="margin-bottom:8px">Set by the instructor for each apparatus. It does not change when skills are graded or a template is assigned.</p>' +
+    data.apparatus.map((a, i) => '<div class="fld" style="margin-top:8px"><label class="lbl" for="lv' + i + '">' + esc(a.name) + '</label><select id="lv' + i + '" data-app="' + a.id + '">' + optionsHtml([{ value: "", label: "Not set" }].concat(CATS.map((c) => ({ value: c, label: c }))), levelOf(id, a.id)) + "</select></div>").join("") + "</fieldset>" +
     '<div class="btnrow"><button class="btn2" type="submit" id="eSave">Save</button><a class="btn2 sec" href="#/student/' + id + '">Cancel</a></div></form>';
   return shell("students", "Edit student", "", "student/" + id, "", body);
 }
@@ -849,11 +886,158 @@ function wireEditStudent(id) {
     const active = document.getElementById("eAct").checked;
     const { error } = await sb.from("students").update({ name: name, active: active }).eq("id", id);
     if (error) { setMessage("err", "Could not save the changes."); render(); return; }
-    const st = sdata.students.find((x) => x.id === id);
-    if (st) { st.name = name; st.active = active; }
+    let levelFail = false;
+    for (let i = 0; i < data.apparatus.length; i++) {
+      const sel = document.getElementById("lv" + i);
+      if (!sel) continue;
+      if (sel.value === levelOf(id, sel.getAttribute("data-app"))) continue;
+      const r = await saveLevel(id, sel.getAttribute("data-app"), sel.value);
+      if (r.error) levelFail = true;
+    }
+    await loadStudents();
+    if (levelFail) { setMessage("err", "Saved, but the level could not be saved. Has the levels SQL been run?"); go("student/" + id); return; }
     setMessage("ok", active ? "Saved." : "Saved. " + name + " is now inactive and hidden from the student list.");
     go(active ? "student/" + id : "students");
   });
+}
+
+/* ---------- Log (class status) ---------- */
+const lui = { sel: [], app: "All", cat: "All", lvl: "All", grade: "All", by: "All", slevel: "All", q: "", ungraded: false, pages: true, pickerOpen: false };
+
+function gradeChip(g) {
+  if (!g) return '<span class="hint">not graded</span>';
+  const pal = { A: ["#DCFCE7", "#15803D", "#14532D"], B: ["#FEF3C7", "#B45309", "#713F12"], C: ["#FEE2E2", "#B91C1C", "#7F1D1D"] }[g];
+  return '<span role="img" aria-label="Grade ' + g + '" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:9px;font-weight:700;border:2px solid ' + pal[1] + ";background:" + pal[0] + ";color:" + pal[2] + '">' + g + "</span>";
+}
+function logRows() {
+  const q = lui.q.trim().toLowerCase();
+  const out = [];
+  sdata.log.forEach((l) => {
+    const st = sdata.students.find((x) => x.id === l.student_id);
+    const sk = skillById(l.skill_id);
+    if (!st || !sk || !st.active) return;
+    if (!l.grade && !lui.ungraded) return;
+    if (lui.sel.length && lui.sel.indexOf(st.id) === -1) return;
+    if (lui.app !== "All" && sk.apparatus_id !== lui.app) return;
+    if (lui.cat !== "All" && sk.category !== lui.cat) return;
+    if (lui.lvl !== "All" && String(sk.level) !== lui.lvl) return;
+    if (lui.grade === "None" ? !!l.grade : (lui.grade !== "All" && l.grade !== lui.grade)) return;
+    if (lui.by !== "All" && l.graded_by !== lui.by) return;
+    const slv = levelOf(st.id, sk.apparatus_id);
+    if (lui.slevel !== "All" && slv !== lui.slevel) return;
+    if (q && sk.name.toLowerCase().indexOf(q) === -1) return;
+    out.push({ student_id: st.id, student: st.name, slevel: slv, apparatus: apparatusName(sk.apparatus_id), category: sk.category, level: sk.level, order: sk.sort_order || 0, skill: sk.name, grade: l.grade || "", day: l.graded_on ? String(l.graded_on).slice(0, 10) : "", by: l.graded_by ? (sdata.instructors[l.graded_by] || "") : "" });
+  });
+  out.sort((a, b) => a.student.localeCompare(b.student) || a.apparatus.localeCompare(b.apparatus) || (CATS.indexOf(a.category) - CATS.indexOf(b.category)) || (a.level - b.level) || (a.order - b.order) || a.skill.localeCompare(b.skill));
+  return out;
+}
+function logListHtml() {
+  const rows = logRows();
+  if (!rows.length) return '<p class="card">' + (sdata.log.length ? "Nothing matches these filters. Skills that are not graded yet are hidden unless you tick the box." : "No students have skills yet.") + "</p>";
+  const groups = [];
+  rows.forEach((r) => { let g = groups[groups.length - 1]; if (!g || g.id !== r.student_id) { g = { id: r.student_id, name: r.student, rows: [] }; groups.push(g); } g.rows.push(r); });
+  return groups.map((g) => {
+    const lv = levelsText(g.id);
+    const cards = g.rows.map((r) =>
+      '<div class="scard"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div class="nm">' + esc(r.skill) + "</div>" + gradeChip(r.grade) + "</div>" +
+      '<div class="meta">' + esc(r.category) + " · Level " + r.level + (r.day ? " · " + fmtDate(r.day) : "") + (r.by ? " · by " + esc(r.by) : "") + "</div></div>").join("");
+    const trs = g.rows.map((r) =>
+      "<tr><td>" + esc(r.skill) + "</td><td>" + esc(r.category) + "</td><td>" + r.level + "</td><td>" + gradeChip(r.grade) + '</td><td style="white-space:nowrap">' + (r.day ? fmtDate(r.day) : "") + '</td><td style="font-weight:600;color:var(--deep)">' + esc(r.by) + "</td></tr>").join("");
+    const graded = g.rows.filter((r) => r.grade).length;
+    return '<section class="stugroup"><div class="sghead"><h2>' + esc(g.name) + '</h2><span class="hint">' + (lv ? esc(lv) + " · " : "") + graded + " graded" + (g.rows.length !== graded ? ", " + (g.rows.length - graded) + " not yet" : "") + "</span></div>" +
+      '<div class="cards">' + cards + '</div><div class="tbl"><table style="min-width:700px"><thead><tr><th scope="col"><span class="plain">Skill</span></th><th scope="col"><span class="plain">Category</span></th><th scope="col"><span class="plain">Level</span></th><th scope="col"><span class="plain">Grade</span></th><th scope="col"><span class="plain">Date graded</span></th><th scope="col"><span class="plain">Graded by</span></th></tr></thead><tbody>' + trs + "</tbody></table></div></section>";
+  }).join("");
+}
+function pickerHtml() {
+  const active = sdata.students.filter((s) => s.active);
+  const summary = lui.sel.length ? lui.sel.length + (lui.sel.length === 1 ? " student" : " students") + " selected" : "All students";
+  return '<div class="f wide" style="position:relative"><label for="lPick">Students</label><button type="button" id="lPick" class="pickbtn" aria-expanded="' + lui.pickerOpen + '">' + summary + ' <span aria-hidden="true">▾</span></button>' +
+    (lui.pickerOpen ? '<div class="pickpop" role="group" aria-label="Choose students"><div style="display:flex;gap:8px;margin-bottom:6px"><button type="button" class="rowbtn sm" id="lAll">Select all</button><button type="button" class="rowbtn sm" id="lNone">Clear</button></div>' +
+      (active.map((s) => '<label class="chk"><input type="checkbox" data-pick="' + s.id + '"' + (lui.sel.indexOf(s.id) !== -1 ? " checked" : "") + ">" + esc(s.name) + "</label>").join("") || '<p class="hint">No active students.</p>') +
+      '<p class="hint" style="margin-top:6px">Nothing ticked means everyone.</p></div>' : "") + "</div>";
+}
+function logView() {
+  const opt = optionsHtml;
+  const apps = opt([{ value: "All", label: "All" }].concat(data.apparatus.map((a) => ({ value: a.id, label: a.name }))), lui.app);
+  const cats = opt([{ value: "All", label: "All" }].concat(CATS.map((c) => ({ value: c, label: c }))), lui.cat);
+  const lvls = opt([{ value: "All", label: "All" }, { value: "1", label: "1" }, { value: "2", label: "2" }, { value: "3", label: "3" }], lui.lvl);
+  const grades = opt([{ value: "All", label: "All" }, { value: "A", label: "A" }, { value: "B", label: "B" }, { value: "C", label: "C" }, { value: "None", label: "Not graded" }], lui.grade);
+  const bys = opt([{ value: "All", label: "Anyone" }].concat(Object.keys(sdata.instructors).map((id) => ({ value: id, label: sdata.instructors[id] }))), lui.by);
+  const slv = opt([{ value: "All", label: "Any" }].concat(CATS.map((c) => ({ value: c, label: c }))), lui.slevel);
+  const body = '<div class="panel noprint" id="logPanel">' + pickerHtml() +
+    '<div class="f"><label for="lApp">Apparatus</label><select id="lApp">' + apps + "</select></div>" +
+    '<div class="f"><label for="lSLv">Student level</label><select id="lSLv">' + slv + "</select></div>" +
+    '<div class="f"><label for="lCat">Skill category</label><select id="lCat">' + cats + "</select></div>" +
+    '<div class="f"><label for="lLvl">Skill level</label><select id="lLvl">' + lvls + "</select></div>" +
+    '<div class="f"><label for="lGr">Grade</label><select id="lGr">' + grades + "</select></div>" +
+    '<div class="f"><label for="lBy">Graded by</label><select id="lBy">' + bys + "</select></div>" +
+    '<div class="f wide"><label for="lQ">Search by skill</label><input id="lQ" type="search" value="' + esc(lui.q) + '" placeholder="Type part of a skill name"></div>' +
+    '<label class="chk"><input id="lUng" type="checkbox"' + (lui.ungraded ? " checked" : "") + ">Include skills not graded yet</label>" +
+    '<label class="chk"><input id="lPages" type="checkbox"' + (lui.pages ? " checked" : "") + ">Print each student on a new page</label>" +
+    '<button class="btn2 sec" type="button" id="lClear">Clear filters</button></div>' +
+    '<p class="printonly">Printed ' + fmtDate(todayStr()) + "</p>" +
+    '<div id="logList" class="' + (lui.pages ? "pagebreaks" : "") + '">' + logListHtml() + "</div>" +
+    '<p class="hint noprint">Shows each student’s current grade for each skill. Only active students are listed.</p>';
+  const actions = '<div class="noprint" style="display:flex;gap:8px"><button class="btn2 sec" type="button" id="lPrint">Print</button><button class="btn2" type="button" id="lExport">Export CSV</button></div>';
+  return shell("log", "Class log", logRows().length + " skills", "home", actions, body);
+}
+function csvEscape(v) {
+  const s = String(v === null || v === undefined ? "" : v);
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function logCsv(rows) {
+  const head = ["Student", "Student level", "Apparatus", "Skill category", "Skill level", "Skill", "Grade", "Date graded", "Graded by"];
+  const lines = [head.map(csvEscape).join(",")];
+  rows.forEach((r) => lines.push([r.student, r.slevel, r.apparatus, r.category, r.level, r.skill, r.grade, r.day, r.by].map(csvEscape).join(",")));
+  return "﻿" + lines.join("\r\n");
+}
+function downloadText(filename, text, type) {
+  const blob = new Blob([text], { type: type || "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function wireLog() {
+  wireShell();
+  const redo = () => {
+    document.getElementById("logList").innerHTML = logListHtml();
+    const sub = document.querySelector(".topbar2 .sub");
+    if (sub) sub.textContent = logRows().length + " skills";
+  };
+  const bind = (id, ev, fn) => { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); };
+  const repaintPicker = () => {
+    const old = document.getElementById("lPick").parentElement;
+    const tmp = document.createElement("div"); tmp.innerHTML = pickerHtml();
+    old.replaceWith(tmp.firstChild);
+    wirePicker();
+  };
+  const wirePicker = () => {
+    bind("lPick", "click", () => { lui.pickerOpen = !lui.pickerOpen; repaintPicker(); });
+    bind("lAll", "click", () => { lui.sel = sdata.students.filter((s) => s.active).map((s) => s.id); repaintPicker(); redo(); });
+    bind("lNone", "click", () => { lui.sel = []; repaintPicker(); redo(); });
+    document.querySelectorAll("[data-pick]").forEach((cb) => cb.addEventListener("change", () => {
+      const id = cb.getAttribute("data-pick");
+      lui.sel = cb.checked ? lui.sel.concat([id]) : lui.sel.filter((x) => x !== id);
+      const btn = document.getElementById("lPick");
+      btn.firstChild.textContent = (lui.sel.length ? lui.sel.length + (lui.sel.length === 1 ? " student" : " students") + " selected" : "All students") + " ";
+      redo();
+    }));
+  };
+  wirePicker();
+  bind("lApp", "change", (e) => { lui.app = e.target.value; redo(); });
+  bind("lSLv", "change", (e) => { lui.slevel = e.target.value; redo(); });
+  bind("lCat", "change", (e) => { lui.cat = e.target.value; redo(); });
+  bind("lLvl", "change", (e) => { lui.lvl = e.target.value; redo(); });
+  bind("lGr", "change", (e) => { lui.grade = e.target.value; redo(); });
+  bind("lBy", "change", (e) => { lui.by = e.target.value; redo(); });
+  bind("lQ", "input", (e) => { lui.q = e.target.value; redo(); });
+  bind("lUng", "change", (e) => { lui.ungraded = e.target.checked; redo(); });
+  bind("lPages", "change", (e) => { lui.pages = e.target.checked; document.getElementById("logList").className = lui.pages ? "pagebreaks" : ""; });
+  bind("lClear", "click", () => { Object.assign(lui, { sel: [], app: "All", cat: "All", lvl: "All", grade: "All", by: "All", slevel: "All", q: "", ungraded: false, pickerOpen: false }); render(); });
+  bind("lExport", "click", () => { downloadText("class-log-" + todayStr() + ".csv", logCsv(logRows())); });
+  bind("lPrint", "click", () => { window.print(); });
 }
 
 /* ---------- Stub for screens not built yet ---------- */
@@ -886,11 +1070,11 @@ async function render() {
     document.getElementById("signout").addEventListener("click", signOut);
     return;
   }
-  if (parts[0] !== "log") {
+  {
     if (!data.apparatus.length) { await loadApparatus(); }
     if (token !== renderToken) return;
     if (!data.loaded) { await loadSkills(); if (token !== renderToken) return; }
-    if (parts[0] === "students" || parts[0] === "student" || (parts[0] === "skill" && parts[2])) {
+    if (parts[0] === "students" || parts[0] === "student" || parts[0] === "log" || (parts[0] === "skill" && parts[2])) {
       if (!sdata.loaded || parts[0] === "students" || (parts[1] && !sdata.students.some((x) => x.id === parts[1]) && parts[1] !== "new")) {
         await loadStudents();
         if (token !== renderToken) return;
@@ -906,6 +1090,9 @@ async function render() {
   } else if (parts[0] === "settings") {
     app.innerHTML = settingsView();
     wireSettings();
+  } else if (parts[0] === "log") {
+    app.innerHTML = logView();
+    wireLog();
   } else if (parts[0] === "students") {
     app.innerHTML = studentsView();
     wireStudents();
