@@ -138,11 +138,12 @@
   .scard .acts { display: flex; gap: 8px; }
   .rowbtn { min-height: 44px; padding: 0 16px; border: 1.5px solid var(--field); border-radius: 10px; background: #FFFFFF; color: var(--deep); font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
   .scard { gap: 6px; padding: 10px 12px; }
-  .scard .bot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin-top: 2px; }
-  .scard .checks2 { display: flex; gap: 14px; }
-  .chk.sm { min-height: 32px; gap: 6px; font-size: 14px; }
-  .chk.sm input { width: 18px; height: 18px; }
-  .rowbtn.sm { min-height: 36px; padding: 0 12px; font-size: 13px; border-radius: 9px; }
+  .scard .bot { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
+  .scard .acts { flex-shrink: 0; gap: 6px; }
+  .scard .checks2 { display: flex; gap: 10px; min-width: 0; }
+  .chk.sm { min-height: 32px; gap: 5px; font-size: 13px; white-space: nowrap; }
+  .chk.sm input { width: 16px; height: 16px; }
+  .rowbtn.sm { min-height: 32px; padding: 0 10px; font-size: 13px; border-radius: 8px; }
   .tbl { display: none; overflow-x: auto; background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; }
   .tbl table { width: 100%; min-width: 820px; border-collapse: collapse; }
   .tbl th { padding: 0; font-size: 13px; font-weight: 700; color: var(--deep); background: var(--soft); border-bottom: 1px solid var(--border); text-align: left; }
