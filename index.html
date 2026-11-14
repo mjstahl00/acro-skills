@@ -157,10 +157,11 @@
   .cfbox p { margin: 0 0 18px 0; font-size: 16px; line-height: 24px; }
   .cfbtns { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
   .btn2.danger { background: #B91C1C; color: #FFFFFF; }
+  .btn2:disabled { opacity: 0.5; cursor: not-allowed; }
   .trashbtn { flex-shrink: 0; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: #B91C1C; cursor: pointer; }
   .trashbtn:hover, .trashbtn:focus-visible { background: #FEE2E2; }
   .webonly { display: none; }
-  @media (min-width: 900px) { button.webonly { display: inline-flex; } p.webonly { display: block; } }
+  @media (min-width: 900px) { button.webonly { display: inline-flex; } p.webonly, div.webonly { display: block; } }
   .gcard { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; }
   .gcard .nm { font-size: 16px; line-height: 22px; font-weight: 600; }
   .gcard .grow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -249,12 +250,12 @@ const state = {
 const app = document.getElementById("app");
 
 /* ---------- Helpers ---------- */
-function confirmDialog(title, text, okLabel) {
+function confirmDialog(title, text, okLabel, typeWord) {
   return new Promise((resolve) => {
     const prevFocus = document.activeElement;
     const ov = document.createElement("div");
     ov.className = "cfov";
-    ov.innerHTML = '<div class="cfbox" role="alertdialog" aria-modal="true" aria-labelledby="cfT" aria-describedby="cfD"><h2 id="cfT">' + esc(title) + '</h2><p id="cfD">' + esc(text) + '</p><div class="cfbtns"><button type="button" class="btn2 sec" id="cfNo">Cancel</button><button type="button" class="btn2 danger" id="cfOk">' + esc(okLabel || "OK") + "</button></div></div>";
+    ov.innerHTML = '<div class="cfbox" role="alertdialog" aria-modal="true" aria-labelledby="cfT" aria-describedby="cfD"><h2 id="cfT">' + esc(title) + '</h2><p id="cfD">' + esc(text) + "</p>" + (typeWord ? '<div class="fld" style="margin:0 0 16px 0"><label class="lbl" for="cfType">Type ' + esc(typeWord) + ' to confirm</label><input id="cfType" type="text" autocomplete="off"></div>' : "") + '<div class="cfbtns"><button type="button" class="btn2 sec" id="cfNo">Cancel</button><button type="button" class="btn2 danger" id="cfOk">' + esc(okLabel || "OK") + "</button></div></div>";
     const done = (v) => { document.removeEventListener("keydown", key); ov.remove(); if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} } resolve(v); };
     const key = (e) => {
       if (e.key === "Escape") done(false);
@@ -265,6 +266,12 @@ function confirmDialog(title, text, okLabel) {
     document.body.appendChild(ov);
     ov.querySelector("#cfNo").addEventListener("click", () => done(false));
     ov.querySelector("#cfOk").addEventListener("click", () => done(true));
+    if (typeWord) {
+      const ok = ov.querySelector("#cfOk"), inp = ov.querySelector("#cfType");
+      ok.disabled = true;
+      inp.addEventListener("input", () => { ok.disabled = inp.value.trim().toLowerCase() !== typeWord.toLowerCase(); });
+      inp.addEventListener("keydown", (e) => { if (e.key === "Tab") e.stopPropagation(); });
+    }
     ov.querySelector("#cfNo").focus();
   });
 }
@@ -960,13 +967,31 @@ function editStudentView(id) {
     '<fieldset style="margin:0;padding:12px 14px;border:1.5px solid var(--border);border-radius:14px"><legend style="padding:0 6px;font-size:15px;font-weight:700;color:var(--deep)">Current level</legend>' +
     '<p class="hint" style="margin-bottom:8px">Set by the instructor for each apparatus. It does not change when skills are graded or a template is assigned.</p>' +
     data.apparatus.map((a, i) => '<div class="fld" style="margin-top:8px"><label class="lbl" for="lv' + i + '">' + esc(a.name) + '</label><select id="lv' + i + '" data-app="' + a.id + '">' + optionsHtml([{ value: "", label: "Not set" }].concat(CATS.map((c) => ({ value: c, label: c }))), levelOf(id, a.id)) + "</select></div>").join("") + "</fieldset>" +
-    '<div class="btnrow"><button class="btn2" type="submit" id="eSave">Save</button><a class="btn2 sec" href="#/student/' + id + '">Cancel</a></div></form>';
+    '<div class="btnrow"><button class="btn2" type="submit" id="eSave">Save</button><a class="btn2 sec" href="#/student/' + id + '">Cancel</a></div>' +
+    '<div class="webonly" style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)"><button class="btn2 sec" type="button" id="eDel" style="color:#B91C1C;border-color:#B91C1C">Delete student</button>' +
+    '<p class="hint" style="margin:8px 0 0 0">Permanently deletes this student and all of their grades, for example if a parent asks for their child\'s information to be removed. It cannot be undone. To just hide a student, uncheck Active instead.</p></div></form>';
   return shell("students", "Edit student", "", "student/" + id, "", body);
 }
 function wireEditStudent(id) {
   wireShell();
   const f = document.getElementById("editForm");
   if (!f) return;
+  const eDel = document.getElementById("eDel");
+  if (eDel) eDel.addEventListener("click", async () => {
+    const st = sdata.students.find((x) => x.id === id);
+    if (!st) return;
+    const mine = sdata.log.filter((l) => l.student_id === id);
+    const graded = mine.filter((l) => l.grade).length;
+    const ok = await confirmDialog("Delete " + st.name + "?", "This permanently deletes " + st.name + ", their " + mine.length + " skill" + (mine.length === 1 ? "" : "s") + " (" + graded + " graded) and their current levels. There is no backup and it cannot be undone. Any CSV you already downloaded will still contain their information.", "Delete student", "delete");
+    if (!ok) return;
+    eDel.disabled = true;
+    const r = await sb.from("students").delete().eq("id", id);
+    if (r.error) { setMessage("err", "Could not delete the student: " + r.error.message); render(); return; }
+    sdata.log = sdata.log.filter((l) => l.student_id !== id);
+    await loadStudents();
+    setMessage("ok", "Deleted " + st.name + " and all of their records.");
+    go("students");
+  });
   f.addEventListener("submit", async (e) => {
     e.preventDefault();
     const name = document.getElementById("eName").value.trim();
