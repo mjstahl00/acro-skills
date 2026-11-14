@@ -151,6 +151,14 @@
   .chk.sm { min-height: 32px; gap: 5px; font-size: 13px; white-space: nowrap; }
   .chk.sm input { width: 16px; height: 16px; }
   .rowbtn.sm { min-height: 32px; padding: 0 10px; font-size: 13px; border-radius: 8px; }
+  .cfov { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(30,26,34,0.5); }
+  .cfbox { width: 100%; max-width: 440px; padding: 22px; background: #FFFFFF; border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
+  .cfbox h2 { margin: 0 0 8px 0; font-size: 20px; color: var(--deep); }
+  .cfbox p { margin: 0 0 18px 0; font-size: 16px; line-height: 24px; }
+  .cfbtns { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+  .btn2.danger { background: #B91C1C; color: #FFFFFF; }
+  .trashbtn { flex-shrink: 0; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: #B91C1C; cursor: pointer; }
+  .trashbtn:hover, .trashbtn:focus-visible { background: #FEE2E2; }
   .webonly { display: none; }
   @media (min-width: 900px) { button.webonly { display: inline-flex; } p.webonly { display: block; } }
   .gcard { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; }
@@ -220,6 +228,8 @@
 <div id="app"></div>
 
 <script>
+/* Read before Supabase clears the link: did this visit come from an invite email? */
+const INVITE_AT_LOAD = /type=invite/.test(location.hash + location.search);
 /* ---------- Settings ---------- */
 const SUPABASE_URL = "https://mdselnzobyymsekilngj.supabase.co";
 const SUPABASE_KEY = "sb_publishable_JhQNcvwj8mbB0v0hDiX3VA_gTTD9tlm"; /* publishable key: safe in the browser */
@@ -239,6 +249,25 @@ const state = {
 const app = document.getElementById("app");
 
 /* ---------- Helpers ---------- */
+function confirmDialog(title, text, okLabel) {
+  return new Promise((resolve) => {
+    const prevFocus = document.activeElement;
+    const ov = document.createElement("div");
+    ov.className = "cfov";
+    ov.innerHTML = '<div class="cfbox" role="alertdialog" aria-modal="true" aria-labelledby="cfT" aria-describedby="cfD"><h2 id="cfT">' + esc(title) + '</h2><p id="cfD">' + esc(text) + '</p><div class="cfbtns"><button type="button" class="btn2 sec" id="cfNo">Cancel</button><button type="button" class="btn2 danger" id="cfOk">' + esc(okLabel || "OK") + "</button></div></div>";
+    const done = (v) => { document.removeEventListener("keydown", key); ov.remove(); if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} } resolve(v); };
+    const key = (e) => {
+      if (e.key === "Escape") done(false);
+      else if (e.key === "Tab") { const b = [ov.querySelector("#cfNo"), ov.querySelector("#cfOk")]; const i = b.indexOf(document.activeElement); e.preventDefault(); b[(i + (e.shiftKey ? -1 : 1) + 2) % 2].focus(); }
+    };
+    document.addEventListener("keydown", key);
+    ov.addEventListener("click", (e) => { if (e.target === ov) done(false); });
+    document.body.appendChild(ov);
+    ov.querySelector("#cfNo").addEventListener("click", () => done(false));
+    ov.querySelector("#cfOk").addEventListener("click", () => done(true));
+    ov.querySelector("#cfNo").focus();
+  });
+}
 function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
@@ -496,9 +525,9 @@ function skillView(idOrNew, fromStudent) {
     '<div class="fld"><label class="lbl" for="kCat">Category</label><select id="kCat">' + optionsHtml(CATS.map((c) => ({ value: c, label: c })), v.category) + "</select></div>" +
     '<div class="fld"><label class="lbl" for="kLvl">Level</label><select id="kLvl">' + optionsHtml([1, 2, 3].map((n) => ({ value: n, label: String(n) })), v.level) + "</select></div>" +
     '<div class="fld"><label class="lbl" for="kOrd">Order within the level</label><input id="kOrd" type="number" value="' + order + '"></div></div>' +
-    '<div class="checks"><label class="chk" style="align-items:flex-start"><input id="kTpl" type="checkbox"' + (v.in_template ? " checked" : "") + '><span>In template<small>Tick to hand this skill out when its category is assigned to a student.</small></span></label>' +
-    '<label class="chk" style="align-items:flex-start"><input id="kAct" type="checkbox"' + (v.active ? " checked" : "") + '><span>Active<small>Untick to retire it. Existing grades are kept.</small></span></label></div>' +
-    '<div class="btnrow"><button class="btn2" type="submit" id="kSave">' + (fromStudent && isNew ? "Save and assign to student" : "Save skill") + '</button><a class="btn2 sec" href="#/' + backTo + '">Cancel</a>' + (isNew ? "" : '<button class="btn2 sec webonly" type="button" id="kDel" style="color:#B91C1C;border-color:#B91C1C">Delete skill</button>') + '</div>' + (isNew ? "" : '<p class="hint webonly" style="margin:8px 0 0 0">Delete is for mistakes such as duplicates. It is blocked while any student has a grade for this skill. To keep a skill but hide it, untick Active instead.</p>') + '</form>';
+    '<div class="checks"><label class="chk" style="align-items:flex-start"><input id="kTpl" type="checkbox"' + (v.in_template ? " checked" : "") + '><span>In template<small>Check to hand this skill out when its category is assigned to a student.</small></span></label>' +
+    '<label class="chk" style="align-items:flex-start"><input id="kAct" type="checkbox"' + (v.active ? " checked" : "") + '><span>Active<small>Uncheck to retire it. Existing grades are kept.</small></span></label></div>' +
+    '<div class="btnrow"><button class="btn2" type="submit" id="kSave">' + (fromStudent && isNew ? "Save and assign to student" : "Save skill") + '</button><a class="btn2 sec" href="#/' + backTo + '">Cancel</a>' + (isNew ? "" : '<button class="btn2 sec webonly" type="button" id="kDel" style="color:#B91C1C;border-color:#B91C1C">Delete skill</button>') + '</div>' + (isNew ? "" : '<p class="hint webonly" style="margin:8px 0 0 0">Delete is for mistakes such as duplicates. It is blocked while any student has a grade for this skill. To keep a skill but hide it, uncheck Active instead.</p>') + '</form>';
   return shell(fromStudent ? "students" : "library", isNew ? "Add skill" : "Edit skill", fromStudent ? "Adds the skill to the library and to " + ((sdata.students.find((x) => x.id === fromStudent) || {}).name || "this student") + "'s list." : "", backTo, "", body);
 }
 function wireSkill(idOrNew, fromStudent) {
@@ -521,7 +550,7 @@ function wireSkill(idOrNew, fromStudent) {
       return;
     }
     const assigned = (lr.data || []).length;
-    if (!window.confirm("Delete " + sk.name + " from the library?" + (assigned ? " It will also be taken off " + assigned + " student list" + (assigned === 1 ? "" : "s") + " where it has no grade." : "") + " This cannot be undone.")) { delBtn.disabled = false; return; }
+    if (!(await confirmDialog("Delete this skill?", sk.name + " will be deleted from the library." + (assigned ? " It will also be taken off " + assigned + " student list" + (assigned === 1 ? "" : "s") + " where it has no grade." : "") + " This cannot be undone.", "Delete skill"))) { delBtn.disabled = false; return; }
     if (assigned) {
       const d1 = await sb.from("skill_log").delete().eq("skill_id", sk.id);
       if (d1.error) { setMessage("err", "Could not take the skill off student lists: " + d1.error.message); render(); return; }
@@ -734,7 +763,7 @@ function addStudentView() {
     '<div class="fld"><label class="lbl" for="sName">Student name</label><input id="sName" type="text" autocomplete="off"></div>' +
     '<label class="chk" style="align-items:flex-start"><input id="sAct" type="checkbox" checked><span>Active<small style="display:block;color:#5E5566;font-size:13px;line-height:18px">Inactive students are hidden from the list but keep their grades.</small></span></label>' +
     '<fieldset style="margin:0;padding:12px 14px;border:1.5px solid var(--border);border-radius:14px"><legend style="padding:0 6px;font-size:15px;font-weight:700;color:var(--deep)">Start them on</legend>' + (rows || '<p class="hint">Add an apparatus in Settings first.</p>') +
-    '<p class="hint" style="margin-top:8px">Tick every apparatus to start. Saving adds the skills marked In template for each category chosen. To add another template later, open the student and tap Assign a template.</p></fieldset>' +
+    '<p class="hint" style="margin-top:8px">Check every apparatus to start. Saving adds the skills marked In template for each category chosen. To add another template later, open the student and tap Assign a template.</p></fieldset>' +
     '<div class="btnrow"><button class="btn2" type="submit" id="sSave">Save student</button><a class="btn2 sec" href="#/students">Cancel</a></div></form>';
   return shell("students", "Add student", "", "students", "", body);
 }
@@ -778,7 +807,7 @@ function gradeCard(sk, row, find) {
   if (find) right = esc(sk.category) + "<br>Level " + sk.level;
   else if (g) right = "Graded " + fmtDate(row.graded_on) + (row.graded_by && sdata.instructors[row.graded_by] ? "<br><b style=\"color:#51165F\">by " + esc(sdata.instructors[row.graded_by]) + "</b>" : "");
   else right = "Not graded yet";
-  const nm = find ? '<div class="nm">' + esc(sk.name) + "</div>" : '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div class="nm">' + esc(sk.name) + '</div><button type="button" class="rowbtn sm" data-act="unassign" data-skill="' + sk.id + '" aria-label="Remove ' + esc(sk.name) + ' from this student\'s list">Remove</button></div>';
+  const nm = find ? '<div class="nm">' + esc(sk.name) + "</div>" : '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin:-4px -6px 0 0"><div class="nm">' + esc(sk.name) + '</div><button type="button" class="trashbtn" data-act="unassign" data-skill="' + sk.id + '" aria-label="Remove ' + esc(sk.name) + ' from this student\'s list" title="Remove from list"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button></div>';
   return '<div class="gcard">' + nm + '<div class="grow"><div class="chips" role="group" aria-label="Grade for ' + esc(sk.name) + '">' + chipsHtml(sk.id, g, sk.name) + '</div><div class="side" style="text-align:' + (find ? "center" : "right") + '">' + right + "</div></div></div>";
 }
 function gradeBodyHtml(student) {
@@ -876,7 +905,7 @@ function wireGrade(id) {
       const st = sdata.students.find((x) => x.id === id);
       if (!row) return;
       const warn = row.grade ? " It is graded " + row.grade + ", and that grade will be removed too." : "";
-      if (!window.confirm("Remove " + (sk ? sk.name : "this skill") + " from " + (st ? st.name : "this student") + "'s list?" + warn)) return;
+      if (!(await confirmDialog("Remove from list?", (sk ? sk.name : "This skill") + " will be removed from " + (st ? st.name : "this student") + "'s list." + warn, "Remove"))) return;
       t.disabled = true;
       const del = await sb.from("skill_log").delete().eq("id", row.id);
       if (del.error) { setMessage("err", "Could not remove that skill."); render(); return; }
@@ -927,7 +956,7 @@ function editStudentView(id) {
   if (!st) return shell("students", "Student", "", "students", "", '<p class="card">That student was not found. <a href="#/students">Back to students</a></p>');
   const body = '<form class="formcard" id="editForm" novalidate>' +
     '<div class="fld"><label class="lbl" for="eName">Student name</label><input id="eName" type="text" autocomplete="off" value="' + esc(st.name) + '"></div>' +
-    '<label class="chk" style="align-items:flex-start"><input id="eAct" type="checkbox"' + (st.active ? " checked" : "") + '><span>Active<small style="display:block;color:#5E5566;font-size:13px;line-height:18px">Untick to hide them from the student list. Their grades are kept, and you can make them active again later.</small></span></label>' +
+    '<label class="chk" style="align-items:flex-start"><input id="eAct" type="checkbox"' + (st.active ? " checked" : "") + '><span>Active<small style="display:block;color:#5E5566;font-size:13px;line-height:18px">Uncheck to hide them from the student list. Their grades are kept, and you can make them active again later.</small></span></label>' +
     '<fieldset style="margin:0;padding:12px 14px;border:1.5px solid var(--border);border-radius:14px"><legend style="padding:0 6px;font-size:15px;font-weight:700;color:var(--deep)">Current level</legend>' +
     '<p class="hint" style="margin-bottom:8px">Set by the instructor for each apparatus. It does not change when skills are graded or a template is assigned.</p>' +
     data.apparatus.map((a, i) => '<div class="fld" style="margin-top:8px"><label class="lbl" for="lv' + i + '">' + esc(a.name) + '</label><select id="lv' + i + '" data-app="' + a.id + '">' + optionsHtml([{ value: "", label: "Not set" }].concat(CATS.map((c) => ({ value: c, label: c }))), levelOf(id, a.id)) + "</select></div>").join("") + "</fieldset>" +
@@ -993,7 +1022,7 @@ function logRows() {
 }
 function logListHtml() {
   const rows = logRows();
-  if (!rows.length) return '<p class="card">' + (sdata.log.length ? "Nothing matches these filters. Skills that are not graded yet are hidden unless you tick the box." : "No students have skills yet.") + "</p>";
+  if (!rows.length) return '<p class="card">' + (sdata.log.length ? "Nothing matches these filters. Skills that are not graded yet are hidden unless you check the box." : "No students have skills yet.") + "</p>";
   const groups = [];
   rows.forEach((r) => { let g = groups[groups.length - 1]; if (!g || g.id !== r.student_id) { g = { id: r.student_id, name: r.student, rows: [] }; groups.push(g); } g.rows.push(r); });
   return groups.map((g) => {
@@ -1014,7 +1043,7 @@ function pickerHtml() {
   return '<div class="f wide" style="position:relative"><label for="lPick">Students</label><button type="button" id="lPick" class="pickbtn" aria-expanded="' + lui.pickerOpen + '">' + summary + ' <span aria-hidden="true">▾</span></button>' +
     (lui.pickerOpen ? '<div class="pickpop" role="group" aria-label="Choose students"><div style="display:flex;gap:8px;margin-bottom:6px"><button type="button" class="rowbtn sm" id="lAll">Select all</button><button type="button" class="rowbtn sm" id="lNone">Clear</button></div>' +
       (active.map((s) => '<label class="chk"><input type="checkbox" data-pick="' + s.id + '"' + (lui.sel.indexOf(s.id) !== -1 ? " checked" : "") + ">" + esc(s.name) + "</label>").join("") || '<p class="hint">No active students.</p>') +
-      '<p class="hint" style="margin-top:6px">Nothing ticked means everyone.</p></div>' : "") + "</div>";
+      '<p class="hint" style="margin-top:6px">Nothing checked means everyone.</p></div>' : "") + "</div>";
 }
 function logView() {
   const opt = optionsHtml;
@@ -1399,10 +1428,13 @@ async function loadName() {
   state.name = data && data.name ? data.name : "";
 }
 
+let arrivedByInvite = INVITE_AT_LOAD;
 /* ---------- Start ---------- */
 sb.auth.onAuthStateChange(async (event, session) => {
   state.session = session;
   if (event === "PASSWORD_RECOVERY") state.recovery = true;
+  /* An invite link signs the person in without a password, so send them to the set-password screen first. */
+  if (arrivedByInvite && session && (event === "SIGNED_IN" || event === "INITIAL_SESSION")) { state.recovery = true; arrivedByInvite = false; }
   if (session) {
     setMessage(null);
     /* Do not call Supabase inside this callback directly; defer it. */
