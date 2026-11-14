@@ -158,6 +158,9 @@
   .cfbtns { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
   .btn2.danger { background: #B91C1C; color: #FFFFFF; }
   .btn2:disabled { opacity: 0.5; cursor: not-allowed; }
+  .infobtn { flex-shrink: 0; width: 28px; height: 28px; margin: -2px 0 0 -4px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 50%; background: transparent; color: var(--primary); cursor: pointer; }
+  .infobtn:hover, .infobtn[aria-expanded=true] { background: var(--soft); }
+  .descnote { margin: 6px 0 2px 0; padding: 8px 10px; border-radius: 10px; background: var(--soft); color: var(--text); font-size: 14px; line-height: 20px; font-weight: 400; white-space: pre-wrap; }
   .trashbtn { flex-shrink: 0; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: #B91C1C; cursor: pointer; }
   .trashbtn:hover, .trashbtn:focus-visible { background: #FEE2E2; }
   .webonly { display: none; }
@@ -370,9 +373,9 @@ async function loadApparatus() {
 }
 async function loadSkills() {
   data.loaded = false;
-  const { data: rows, error } = await sb.from("skills").select("*").order("sort_order");
-  if (error) { setMessage("err", "Could not load skills."); data.skills = []; }
-  else data.skills = rows || [];
+  const r = await fetchAll("skills", ["sort_order", "id"]);
+  if (r.error) { setMessage("err", "Could not load skills."); data.skills = []; }
+  else data.skills = r.rows;
   data.loaded = true;
 }
 function apparatusName(id) {
@@ -624,10 +627,15 @@ function settingsView() {
     '<section class="setsec"><h2>Apparatus</h2><p class="hint">These names feed the dropdowns across the app, listed alphabetically. Change a name and tap Save. It updates everywhere, and no grades are lost.</p>' +
     '<div class="list" style="max-width:640px">' + rows + "</div>" +
     '<form class="formcard" id="appForm" novalidate style="margin:0"><div class="fld"><label class="lbl" for="aName">New apparatus</label><input id="aName" type="text" placeholder="Sling" autocomplete="off"></div>' +
-    '<div class="btnrow"><button class="btn2" type="submit">Add apparatus</button></div></form></section>';
+    '<div class="btnrow"><button class="btn2" type="submit">Add apparatus</button></div></form></section>' +
+    '<section class="setsec"><h2>Backup</h2><p class="hint">The free Supabase plan keeps no backups, so download one regularly, for example before each class session.</p>' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px"><button class="btn2" type="button" id="bkSql">Download backup (SQL file)</button><button class="btn2 sec" type="button" id="bkCsv">Download backup (CSV files)</button></div>' +
+    '<p id="bkMsg" role="status" class="msg"></p>' +
+    '<p class="hint"><b>To restore:</b> open the Supabase SQL Editor, click New query, paste in the whole .sql file and press Run. It only adds rows that are missing, so running it twice is safe. The CSV download is a zip with one spreadsheet per table, for looking at the data in Excel. Keep backup files private because they contain student names.</p></section>';
   return shell("settings", "Settings", "", "home", "", body);
 }
 function wireSettings() {
+  wireBackup();
   wireShell();
   document.getElementById("nameForm").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -681,14 +689,14 @@ const sui = { q: "", inactive: false, key: "name", dir: "asc" };
 const gui = { apparatusId: null, tab: "mine", q: "", cat: "All", lvl: "All", assignOpen: false, studentId: null, fkey: "category", fdir: "asc" };
 
 async function loadStudents() {
-  const a = await sb.from("students").select("*").order("name");
-  const b = await sb.from("skill_log").select("*");
+  const a = await fetchAll("students", ["name", "id"]);
+  const b = await fetchAll("skill_log", ["id"]);
   const c = await sb.from("instructors").select("id,name");
   const lv = await sb.from("student_levels").select("*");
   sdata.levels = lv.error ? [] : (lv.data || []);
   if (a.error || b.error) { setMessage("err", "Could not load students."); }
-  sdata.students = (a.data || []);
-  sdata.log = (b.data || []);
+  sdata.students = a.rows;
+  sdata.log = b.rows;
   sdata.instructors = {};
   (c.data || []).forEach((i) => { sdata.instructors[i.id] = i.name; });
   sdata.loaded = true;
@@ -808,14 +816,23 @@ function chipsHtml(skillId, grade, name) {
     return '<button type="button" data-act="grade" data-skill="' + skillId + '" data-letter="' + l + '" aria-pressed="' + on + '" aria-label="Grade ' + l + " for " + esc(name) + '" style="' + st + '">' + l + "</button>";
   }).join("");
 }
+function infoBtn(sk) {
+  if (!sk || !sk.description || !String(sk.description).trim()) return "";
+  return '<button type="button" class="infobtn" data-act="info" aria-expanded="false" aria-label="About ' + esc(sk.name) + '" title="About this skill"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5"></path><circle cx="12" cy="7.8" r="0.6" fill="currentColor"></circle></svg></button>';
+}
+function infoNote(sk) {
+  if (!sk || !sk.description || !String(sk.description).trim()) return "";
+  return '<p class="descnote" hidden>' + esc(sk.description) + "</p>";
+}
 function gradeCard(sk, row, find) {
   const g = row ? row.grade || "" : "";
   let right;
   if (find) right = esc(sk.category) + "<br>Level " + sk.level;
   else if (g) right = "Graded " + fmtDate(row.graded_on) + (row.graded_by && sdata.instructors[row.graded_by] ? "<br><b style=\"color:#51165F\">by " + esc(sdata.instructors[row.graded_by]) + "</b>" : "");
   else right = "Not graded yet";
-  const nm = find ? '<div class="nm">' + esc(sk.name) + "</div>" : '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin:-4px -6px 0 0"><div class="nm">' + esc(sk.name) + '</div><button type="button" class="trashbtn" data-act="unassign" data-skill="' + sk.id + '" aria-label="Remove ' + esc(sk.name) + ' from this student\'s list" title="Remove from list"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button></div>';
-  return '<div class="gcard">' + nm + '<div class="grow"><div class="chips" role="group" aria-label="Grade for ' + esc(sk.name) + '">' + chipsHtml(sk.id, g, sk.name) + '</div><div class="side" style="text-align:' + (find ? "center" : "right") + '">' + right + "</div></div></div>";
+  const nmHtml = '<div class="nm" style="display:flex;align-items:flex-start;gap:6px">' + infoBtn(sk) + "<span>" + esc(sk.name) + "</span></div>";
+  const nm = find ? nmHtml + infoNote(sk) : '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin:-4px -6px 0 0">' + nmHtml + '<button type="button" class="trashbtn" data-act="unassign" data-skill="' + sk.id + '" aria-label="Remove ' + esc(sk.name) + ' from this student\'s list" title="Remove from list"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button></div>';
+  return '<div class="gcard">' + nm + (find ? "" : infoNote(sk)) + '<div class="grow"><div class="chips" role="group" aria-label="Grade for ' + esc(sk.name) + '">' + chipsHtml(sk.id, g, sk.name) + '</div><div class="side" style="text-align:' + (find ? "center" : "right") + '">' + right + "</div></div></div>";
 }
 function gradeBodyHtml(student) {
   const appId = gui.apparatusId;
@@ -853,7 +870,7 @@ function gradeBodyHtml(student) {
   const cards = list.map((s) => gradeCard(s, myRows.find((l) => l.skill_id === s.id), true)).join("");
   const fcols = [["name", "Skill"], ["category", "Category"], ["level", "Level"], ["order", "Order"], ["grade", "Grade"]];
   const fhead = fcols.map((c) => '<th scope="col" aria-sort="' + (gui.fkey === c[0] ? (gui.fdir === "asc" ? "ascending" : "descending") : "none") + '"><button type="button" data-act="fsort" data-key="' + c[0] + '"><span>' + c[1] + '</span><span aria-hidden="true" style="font-size:11px">' + (gui.fkey === c[0] ? (gui.fdir === "asc" ? "▲" : "▼") : "") + "</span></button></th>").join("");
-  const ftrs = list.map((s) => '<tr><td style="font-weight:600">' + esc(s.name) + "</td><td>" + esc(s.category) + "</td><td>" + s.level + "</td><td>" + s.sort_order + '</td><td><div class="chips" role="group" aria-label="Grade for ' + esc(s.name) + '">' + chipsHtml(s.id, gradeOf(s), s.name) + "</div></td></tr>").join("");
+  const ftrs = list.map((s) => '<tr><td style="font-weight:600"><div style="display:flex;align-items:flex-start;gap:6px">' + infoBtn(s) + "<span>" + esc(s.name) + "</span></div>" + infoNote(s) + "</td><td>" + esc(s.category) + "</td><td>" + s.level + "</td><td>" + s.sort_order + '</td><td style="white-space:nowrap;width:1%"><div class="chips" style="flex-wrap:nowrap" role="group" aria-label="Grade for ' + esc(s.name) + '">' + chipsHtml(s.id, gradeOf(s), s.name) + "</div></td></tr>").join("");
   const table = '<div class="tbl"><table style="min-width:600px"><thead><tr>' + fhead + "</tr></thead><tbody>" + ftrs + "</tbody></table></div>";
   return '<p class="hint" style="text-align:center">Grading a skill here adds it to their list.</p>' +
     (cards ? '<div class="ggrid cards">' + cards + "</div>" + table : '<p class="card">No skills match.</p>') +
@@ -903,7 +920,12 @@ function wireGrade(id) {
     const t = e.target.closest("[data-act]");
     if (!t) return;
     const act = t.getAttribute("data-act");
-    if (act === "tab") { gui.tab = t.getAttribute("data-tab"); render(); }
+    if (act === "info") {
+      const host = t.closest(".gcard, td");
+      const note = host && host.querySelector(".descnote");
+      if (note) { const open = note.hidden; note.hidden = !open; t.setAttribute("aria-expanded", open ? "true" : "false"); }
+    }
+    else if (act === "tab") { gui.tab = t.getAttribute("data-tab"); render(); }
     else if (act === "fsort") { const k = t.getAttribute("data-key"); if (gui.fkey === k) gui.fdir = gui.fdir === "asc" ? "desc" : "asc"; else { gui.fkey = k; gui.fdir = "asc"; } refreshGrade(id); }
     else if (act === "unassign") {
       const skId = t.getAttribute("data-skill");
@@ -1154,6 +1176,103 @@ function wireLog() {
   bind("lPrint", "click", () => { window.print(); });
 }
 
+/* ---------- Backup ---------- */
+async function fetchAll(table, orderCols) {
+  const out = [];
+  for (let from = 0; ; from += 1000) {
+    let q = sb.from(table).select("*");
+    orderCols.forEach((c) => { q = q.order(c); });
+    const r = await q.range(from, from + 999);
+    if (r.error) return { error: r.error, rows: out };
+    out.push.apply(out, r.data || []);
+    if (!r.data || r.data.length < 1000) break;
+  }
+  return { rows: out };
+}
+const BACKUP_TABLES = [
+  { name: "apparatus", cols: ["id", "name"], order: ["name", "id"], conflict: "id" },
+  { name: "skills", cols: ["id", "name", "description", "apparatus_id", "category", "level", "sort_order", "active", "in_template"], order: ["id"], conflict: "id" },
+  { name: "students", cols: ["id", "name", "active"], order: ["id"], conflict: "id" },
+  { name: "student_levels", cols: ["student_id", "apparatus_id", "category"], order: ["student_id", "apparatus_id"], conflict: "student_id, apparatus_id", optional: true },
+  { name: "instructors", cols: ["id", "name"], order: ["id"], conflict: "id", optional: true },
+  { name: "skill_log", cols: ["id", "student_id", "skill_id", "grade", "graded_on", "graded_by"], order: ["id"], conflict: "id" }
+];
+function sqlVal(v) {
+  if (v === null || v === undefined) return "null";
+  if (typeof v === "boolean") return v ? "true" : "false";
+  if (typeof v === "number") return String(v);
+  return "'" + String(v).replace(/'/g, "''") + "'";
+}
+function buildSql(tables, stamp) {
+  const L = ["-- Student Skills Tracker backup", "-- Made " + stamp, "-- To restore: open Supabase > SQL Editor > New query, paste this whole file, press Run.", "-- It only adds rows that are missing. It does not change or delete rows that already exist.", ""];
+  BACKUP_TABLES.forEach((t) => {
+    const rows = tables[t.name] || [];
+    L.push("-- " + t.name + " (" + rows.length + " rows)");
+    for (let i = 0; i < rows.length; i += 200) {
+      const chunk = rows.slice(i, i + 200).map((r) => "(" + t.cols.map((c) => sqlVal(r[c])).join(", ") + ")").join(",\n  ");
+      const stmt = "insert into public." + t.name + " (" + t.cols.join(", ") + ") values\n  " + chunk + "\non conflict (" + t.conflict + ") do nothing;";
+      if (t.name === "instructors") L.push("do $$ begin\n" + stmt + "\nexception when others then raise notice 'Instructor rows were not restored: %', sqlerrm;\nend $$;");
+      else L.push(stmt);
+    }
+    L.push("");
+  });
+  return L.join("\n");
+}
+function csvFor(t, rows) {
+  return "﻿" + [t.cols.join(",")].concat(rows.map((r) => t.cols.map((c) => csvEscape(r[c])).join(","))).join("\r\n") + "\r\n";
+}
+let crcTable = null;
+function crc32(bytes) {
+  if (!crcTable) { crcTable = []; for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; crcTable[n] = c >>> 0; } }
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) c = crcTable[(c ^ bytes[i]) & 255] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function makeZip(files) {
+  const enc = new TextEncoder(); const parts = []; const central = []; let offset = 0;
+  const u16 = (n) => [n & 255, (n >>> 8) & 255]; const u32 = (n) => [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255];
+  files.forEach((f) => {
+    const nameB = enc.encode(f.name), data = enc.encode(f.text), crc = crc32(data);
+    const head = [0x50, 0x4B, 3, 4, 20, 0, 0, 8, 0, 0, 0, 0, 33, 0].concat(u32(crc), u32(data.length), u32(data.length), u16(nameB.length), u16(0));
+    parts.push(new Uint8Array(head), nameB, data);
+    central.push(new Uint8Array([0x50, 0x4B, 1, 2, 20, 0, 20, 0, 0, 8, 0, 0, 0, 0, 33, 0].concat(u32(crc), u32(data.length), u32(data.length), u16(nameB.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset))), nameB);
+    offset += head.length + nameB.length + data.length;
+  });
+  let csize = 0; central.forEach((c) => { csize += c.length; });
+  const end = new Uint8Array([0x50, 0x4B, 5, 6, 0, 0, 0, 0].concat(u16(files.length), u16(files.length), u32(csize), u32(offset), u16(0)));
+  return new Blob(parts.concat(central, [end]), { type: "application/zip" });
+}
+async function loadBackupData() {
+  const tables = {};
+  for (const t of BACKUP_TABLES) {
+    const r = await fetchAll(t.name, t.order);
+    if (r.error && !t.optional) return { error: "Could not read " + t.name + ": " + r.error.message };
+    tables[t.name] = r.error ? [] : r.rows;
+  }
+  return { tables: tables };
+}
+function downloadBlob(filename, blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function wireBackup() {
+  const run = async (btnId, make) => {
+    const b = document.getElementById(btnId), msg = document.getElementById("bkMsg");
+    const label = b.textContent; b.disabled = true; b.textContent = "Preparing…"; msg.textContent = "";
+    const r = await loadBackupData();
+    b.disabled = false; b.textContent = label;
+    if (r.error) { msg.className = "msg err"; msg.textContent = r.error; return; }
+    make(r.tables);
+    msg.className = "msg ok";
+    msg.textContent = "Backup downloaded: " + r.tables.students.length + " students, " + r.tables.skills.length + " skills, " + r.tables.skill_log.length + " skill records.";
+  };
+  const sql = document.getElementById("bkSql"), zip = document.getElementById("bkCsv");
+  if (sql) sql.addEventListener("click", () => run("bkSql", (t) => downloadText("skills-backup-" + todayStr() + ".sql", buildSql(t, new Date().toISOString()), "text/plain;charset=utf-8")));
+  if (zip) zip.addEventListener("click", () => run("bkCsv", (t) => downloadBlob("skills-backup-" + todayStr() + ".zip", makeZip(BACKUP_TABLES.map((x) => ({ name: x.name + ".csv", text: csvFor(x, t[x.name] || []) }))))));
+}
+
 /* ---------- Import / export skills (CSV) ---------- */
 const imp = { rows: null, file: "", done: "" };
 const IMP_COLS = ["name", "description", "apparatus", "category", "level", "sort_order", "in_template"];
@@ -1182,8 +1301,7 @@ function skillsCsv(skills) {
   return "﻿" + lines.join("\r\n");
 }
 function templateCsv() {
-  const ap = data.apparatus.length ? data.apparatus[0].name : "Fabric";
-  return "﻿" + IMP_COLS.join(",") + "\r\n" + ["Example skill name", "Optional notes", ap, "Basic", 1, 1, "yes"].map(csvEscape).join(",");
+  return "\ufeff" + IMP_COLS.join(",") + "\r\n";
 }
 function keyOf(appId, name, cat, lvl) { return [appId, String(name).trim().toLowerCase(), cat, String(lvl)].join("|"); }
 function analyseImport(table) {
