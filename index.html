@@ -158,6 +158,7 @@
   .cfbtns { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
   .btn2.danger { background: #B91C1C; color: #FFFFFF; }
   .btn2:disabled { opacity: 0.5; cursor: not-allowed; }
+  .retag { margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: #E6E3EA; color: #5E5566; font-size: 12px; font-weight: 600; white-space: nowrap; vertical-align: 1px; }
   .infobtn { flex-shrink: 0; width: 28px; height: 28px; margin: -2px 0 0 -4px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 50%; background: transparent; color: var(--primary); cursor: pointer; }
   .infobtn:hover, .infobtn[aria-expanded=true] { background: var(--soft); }
   .descnote { margin: 6px 0 2px 0; padding: 8px 10px; border-radius: 10px; background: var(--soft); color: var(--text); font-size: 14px; line-height: 20px; font-weight: 400; white-space: pre-wrap; }
@@ -427,7 +428,7 @@ function listHtml() {
     return '<p class="card">' + (data.skills.some((x) => x.apparatus_id === lib.apparatusId) ? "No skills match these filters." : "No skills yet for this apparatus. Tap Add skill to create the first one.") + "</p>";
   }
   const cards = rows.map((r) =>
-    '<div class="scard"><div class="nm">' + esc(r.name) + '</div>' +
+    '<div class="scard"><div class="nm">' + tplStar(r) + esc(r.name) + '</div>' +
     '<div class="meta">' + esc(r.category) + " · Level " + r.level + " · Order " + r.sort_order + (r.active ? "" : " · Retired") + "</div>" +
     '<div class="bot"><div class="checks2"><label class="chk sm"><input type="checkbox" data-act="tpl" data-id="' + r.id + '"' + (r.in_template ? " checked" : "") + ' aria-label="In template: ' + esc(r.name) + '">In template</label>' +
     '<label class="chk sm"><input type="checkbox" data-act="active" data-id="' + r.id + '"' + (r.active ? " checked" : "") + ' aria-label="Active: ' + esc(r.name) + '">Active</label></div>' +
@@ -437,7 +438,7 @@ function listHtml() {
     '<th scope="col" aria-sort="' + (lib.key === c[0] ? (lib.dir === "asc" ? "ascending" : "descending") : "none") + '"' + (c[2] ? ' style="width:' + c[2] + 'px"' : "") + '>' +
     '<button type="button" data-act="sort" data-key="' + c[0] + '"><span>' + c[1] + '</span><span aria-hidden="true" style="font-size:11px">' + (lib.key === c[0] ? (lib.dir === "asc" ? "▲" : "▼") : "") + "</span></button></th>").join("");
   const trs = rows.map((r) =>
-    "<tr><td>" + r.sort_order + '</td><td style="font-weight:600">' + esc(r.name) + (r.active ? "" : ' <span class="hint">(retired)</span>') + "</td><td>" + esc(r.category) + "</td><td>" + r.level + "</td>" +
+    "<tr><td>" + r.sort_order + '</td><td style="font-weight:600">' + tplStar(r) + esc(r.name) + (r.active ? "" : ' <span class="hint">(retired)</span>') + "</td><td>" + esc(r.category) + "</td><td>" + r.level + "</td>" +
     '<td><input type="checkbox" data-act="tpl" data-id="' + r.id + '"' + (r.in_template ? " checked" : "") + ' aria-label="In template: ' + esc(r.name) + '"></td>' +
     '<td><input type="checkbox" data-act="active" data-id="' + r.id + '"' + (r.active ? " checked" : "") + ' aria-label="Active: ' + esc(r.name) + '"></td>' +
     '<td><div style="display:flex;gap:8px"><a class="rowbtn" href="#/skill/' + r.id + '">Edit</a><button class="rowbtn" type="button" data-act="copy" data-id="' + r.id + '">Copy</button></div></td></tr>').join("");
@@ -817,6 +818,12 @@ function chipsHtml(skillId, grade, name) {
     return '<button type="button" data-act="grade" data-skill="' + skillId + '" data-letter="' + l + '" aria-pressed="' + on + '" aria-label="Grade ' + l + " for " + esc(name) + '" style="' + st + '">' + l + "</button>";
   }).join("");
 }
+function tplStar(sk) {
+  return sk && sk.in_template ? '<span title="Template skill" style="font-weight:700;color:var(--primary)">* </span>' : "";
+}
+function retiredTag(sk) {
+  return sk && sk.active === false ? '<span class="retag">Retired</span>' : "";
+}
 function infoBtn(sk) {
   if (!sk || !sk.description || !String(sk.description).trim()) return "";
   return '<button type="button" class="infobtn" data-act="info" aria-expanded="false" aria-label="About ' + esc(sk.name) + '" title="About this skill"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5"></path><circle cx="12" cy="7.8" r="0.6" fill="currentColor"></circle></svg></button>';
@@ -831,7 +838,7 @@ function gradeCard(sk, row, find) {
   if (find) right = esc(sk.category) + "<br>Level " + sk.level;
   else if (g) right = "Graded " + fmtDate(row.graded_on) + (row.graded_by && sdata.instructors[row.graded_by] ? "<br><b style=\"color:#51165F\">by " + esc(sdata.instructors[row.graded_by]) + "</b>" : "");
   else right = "Not graded yet";
-  const nmHtml = '<div class="nm" style="display:flex;align-items:flex-start;gap:6px">' + infoBtn(sk) + "<span>" + esc(sk.name) + "</span></div>";
+  const nmHtml = '<div class="nm" style="display:flex;align-items:flex-start;gap:6px">' + infoBtn(sk) + "<span>" + tplStar(sk) + esc(sk.name) + retiredTag(sk) + "</span></div>";
   const nm = find ? nmHtml + infoNote(sk) : '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin:-4px -6px 0 0">' + nmHtml + '<button type="button" class="trashbtn" data-act="unassign" data-skill="' + sk.id + '" aria-label="Remove ' + esc(sk.name) + ' from this student\'s list" title="Remove from list"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button></div>';
   return '<div class="gcard' + (!find && !sk.in_template ? " extra" : "") + '">' + nm + (find ? "" : infoNote(sk)) + '<div class="grow"><div class="chips" role="group" aria-label="Grade for ' + esc(sk.name) + '">' + chipsHtml(sk.id, g, sk.name) + '</div><div class="side" style="text-align:' + (find ? "center" : "right") + '">' + right + "</div></div></div>";
 }
@@ -853,7 +860,7 @@ function gradeBodyHtml(student) {
     }).join("");
     const hasExtra = allItems.some((x) => !x.sk.in_template), hasTpl = allItems.some((x) => x.sk.in_template);
     const sw = (bg, bd) => '<span aria-hidden="true" style="display:inline-block;width:12px;height:12px;border-radius:3px;background:' + bg + ";border:1px solid " + bd + ';vertical-align:-1px"></span> ';
-    const legend = hasExtra && hasTpl ? '<div class="hint" style="margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px">' + "<span>White cards are template skills, grey cards are extra skills.</span>" +
+    const legend = hasExtra && hasTpl ? '<div class="hint" style="margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px">' + "<span>White cards (*) are template skills, grey cards are extra skills.</span>" +
       '<label class="chk sm" style="min-height:0"><input id="gHideExtra" type="checkbox"' + (gui.hideExtra ? " checked" : "") + ">Hide extra skills</label></div>" : "";
     const none = !items.length ? '<p class="card">Only extra skills are on this list. Uncheck Hide extra skills to see them.</p>' : "";
     return legend + none + html + assignHtml();
@@ -877,7 +884,7 @@ function gradeBodyHtml(student) {
   const cards = list.map((s) => gradeCard(s, myRows.find((l) => l.skill_id === s.id), true)).join("");
   const fcols = [["name", "Skill"], ["category", "Category"], ["level", "Level"], ["order", "Order"], ["grade", "Grade"]];
   const fhead = fcols.map((c) => '<th scope="col" aria-sort="' + (gui.fkey === c[0] ? (gui.fdir === "asc" ? "ascending" : "descending") : "none") + '"><button type="button" data-act="fsort" data-key="' + c[0] + '"><span>' + c[1] + '</span><span aria-hidden="true" style="font-size:11px">' + (gui.fkey === c[0] ? (gui.fdir === "asc" ? "▲" : "▼") : "") + "</span></button></th>").join("");
-  const ftrs = list.map((s) => '<tr><td style="font-weight:600"><div style="display:flex;align-items:flex-start;gap:6px">' + infoBtn(s) + "<span>" + esc(s.name) + "</span></div>" + infoNote(s) + "</td><td>" + esc(s.category) + "</td><td>" + s.level + "</td><td>" + s.sort_order + '</td><td style="white-space:nowrap;width:1%"><div class="chips" style="flex-wrap:nowrap" role="group" aria-label="Grade for ' + esc(s.name) + '">' + chipsHtml(s.id, gradeOf(s), s.name) + "</div></td></tr>").join("");
+  const ftrs = list.map((s) => '<tr><td style="font-weight:600"><div style="display:flex;align-items:flex-start;gap:6px">' + infoBtn(s) + "<span>" + tplStar(s) + esc(s.name) + "</span></div>" + infoNote(s) + "</td><td>" + esc(s.category) + "</td><td>" + s.level + "</td><td>" + s.sort_order + '</td><td style="white-space:nowrap;width:1%"><div class="chips" style="flex-wrap:nowrap" role="group" aria-label="Grade for ' + esc(s.name) + '">' + chipsHtml(s.id, gradeOf(s), s.name) + "</div></td></tr>").join("");
   const table = '<div class="tbl"><table style="min-width:600px"><thead><tr>' + fhead + "</tr></thead><tbody>" + ftrs + "</tbody></table></div>";
   return '<p class="hint" style="text-align:center">Grading a skill here adds it to their list.</p>' +
     (cards ? '<div class="ggrid cards">' + cards + "</div>" + table : '<p class="card">No skills match.</p>') +
@@ -1075,7 +1082,7 @@ function logRows() {
     const slv = levelOf(st.id, sk.apparatus_id);
     if (lui.slevel !== "All" && slv !== lui.slevel) return;
     if (q && sk.name.toLowerCase().indexOf(q) === -1) return;
-    out.push({ student_id: st.id, student: st.name, slevel: slv, apparatus: apparatusName(sk.apparatus_id), category: sk.category, level: sk.level, tpl: sk.in_template ? "Template" : "Extra", order: sk.sort_order || 0, skill: sk.name, grade: l.grade || "", day: l.graded_on ? String(l.graded_on).slice(0, 10) : "", by: l.graded_by ? (sdata.instructors[l.graded_by] || "") : "" });
+    out.push({ student_id: st.id, student: st.name, slevel: slv, apparatus: apparatusName(sk.apparatus_id), category: sk.category, level: sk.level, tpl: sk.in_template ? "Template" : "Extra", retired: !sk.active, order: sk.sort_order || 0, skill: sk.name, grade: l.grade || "", day: l.graded_on ? String(l.graded_on).slice(0, 10) : "", by: l.graded_by ? (sdata.instructors[l.graded_by] || "") : "" });
   });
   out.sort((a, b) => a.student.localeCompare(b.student) || a.apparatus.localeCompare(b.apparatus) || (CATS.indexOf(a.category) - CATS.indexOf(b.category)) || (a.level - b.level) || ((a.tpl === "Template" ? 0 : 1) - (b.tpl === "Template" ? 0 : 1)) || (a.order - b.order) || a.skill.localeCompare(b.skill));
   return out;
@@ -1091,10 +1098,10 @@ function logListHtml() {
   return groups.map((g) => {
     const lv = levelsText(g.id);
     const cards = g.rows.map((r) =>
-      '<div class="scard"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div class="nm">' + star(r) + esc(r.skill) + "</div>" + gradeChip(r.grade) + "</div>" +
+      '<div class="scard"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div class="nm">' + star(r) + esc(r.skill) + (r.retired ? '<span class="retag">Retired</span>' : "") + "</div>" + gradeChip(r.grade) + "</div>" +
       '<div class="meta">' + esc(r.category) + " · Level " + r.level + (r.day ? " · " + fmtDate(r.day) : "") + (r.by ? " · by " + esc(r.by) : "") + "</div></div>").join("");
     const trs = g.rows.map((r) =>
-      "<tr><td>" + star(r) + esc(r.skill) + "</td><td>" + esc(r.category) + "</td><td>" + r.level + "</td><td>" + gradeChip(r.grade) + '</td><td style="white-space:nowrap">' + (r.day ? fmtDate(r.day) : "") + '</td><td style="font-weight:600;color:var(--deep)">' + esc(r.by) + "</td></tr>").join("");
+      "<tr><td>" + star(r) + esc(r.skill) + (r.retired ? '<span class="retag">Retired</span>' : "") + "</td><td>" + esc(r.category) + "</td><td>" + r.level + "</td><td>" + gradeChip(r.grade) + '</td><td style="white-space:nowrap">' + (r.day ? fmtDate(r.day) : "") + '</td><td style="font-weight:600;color:var(--deep)">' + esc(r.by) + "</td></tr>").join("");
     const graded = g.rows.filter((r) => r.grade).length;
     return '<section class="stugroup"><div class="sghead"><h2>' + esc(g.name) + '</h2><span class="hint">' + (lv ? esc(lv) + " · " : "") + graded + " graded" + (g.rows.length !== graded ? ", " + (g.rows.length - graded) + " not yet" : "") + "</span></div>" +
       '<div class="cards">' + cards + '</div><div class="tbl"><table style="min-width:760px"><thead><tr><th scope="col"><span class="plain">Skill</span></th><th scope="col"><span class="plain">Category</span></th><th scope="col"><span class="plain">Level</span></th><th scope="col"><span class="plain">Grade</span></th><th scope="col"><span class="plain">Date graded</span></th><th scope="col"><span class="plain">Graded by</span></th></tr></thead><tbody>' + trs + "</tbody></table></div></section>";
@@ -1143,9 +1150,9 @@ function csvEscape(v) {
   return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 function logCsv(rows) {
-  const head = ["Student", "Student level", "Apparatus", "Skill category", "Skill level", "Skill type", "Skill", "Grade", "Date graded", "Graded by"];
+  const head = ["Student", "Student level", "Apparatus", "Skill category", "Skill level", "Skill type", "Skill status", "Skill", "Grade", "Date graded", "Graded by"];
   const lines = [head.map(csvEscape).join(",")];
-  rows.forEach((r) => lines.push([r.student, r.slevel, r.apparatus, r.category, r.level, r.tpl, r.skill, r.grade, r.day, r.by].map(csvEscape).join(",")));
+  rows.forEach((r) => lines.push([r.student, r.slevel, r.apparatus, r.category, r.level, r.tpl, r.retired ? "Retired" : "Active", r.skill, r.grade, r.day, r.by].map(csvEscape).join(",")));
   return bomIf(lines.join("\r\n"));
 }
 function downloadText(filename, text, type) {
