@@ -165,6 +165,7 @@
   .trashbtn:hover, .trashbtn:focus-visible { background: #FEE2E2; }
   .webonly { display: none; }
   @media (min-width: 900px) { button.webonly { display: inline-flex; } p.webonly, div.webonly { display: block; } }
+  .gcard.extra { background: #FBF1F7; border-color: #E9CFE0; }
   .gcard { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; }
   .gcard .nm { font-size: 16px; line-height: 22px; font-weight: 600; }
   .gcard .grow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -832,7 +833,7 @@ function gradeCard(sk, row, find) {
   else right = "Not graded yet";
   const nmHtml = '<div class="nm" style="display:flex;align-items:flex-start;gap:6px">' + infoBtn(sk) + "<span>" + esc(sk.name) + "</span></div>";
   const nm = find ? nmHtml + infoNote(sk) : '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin:-4px -6px 0 0">' + nmHtml + '<button type="button" class="trashbtn" data-act="unassign" data-skill="' + sk.id + '" aria-label="Remove ' + esc(sk.name) + ' from this student\'s list" title="Remove from list"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button></div>';
-  return '<div class="gcard">' + nm + (find ? "" : infoNote(sk)) + '<div class="grow"><div class="chips" role="group" aria-label="Grade for ' + esc(sk.name) + '">' + chipsHtml(sk.id, g, sk.name) + '</div><div class="side" style="text-align:' + (find ? "center" : "right") + '">' + right + "</div></div></div>";
+  return '<div class="gcard' + (!find && !sk.in_template ? " extra" : "") + '">' + nm + (find ? "" : infoNote(sk)) + '<div class="grow"><div class="chips" role="group" aria-label="Grade for ' + esc(sk.name) + '">' + chipsHtml(sk.id, g, sk.name) + '</div><div class="side" style="text-align:' + (find ? "center" : "right") + '">' + right + "</div></div></div>";
 }
 function gradeBodyHtml(student) {
   const appId = gui.apparatusId;
@@ -844,12 +845,14 @@ function gradeBodyHtml(student) {
     items.forEach((x) => { const k = x.sk.category + "|" + x.sk.level; (groups[k] = groups[k] || { cat: x.sk.category, lvl: x.sk.level, items: [] }).items.push(x); });
     const ordered = Object.keys(groups).map((k) => groups[k]).sort((a, b) => (CATS.indexOf(a.cat) - CATS.indexOf(b.cat)) || (a.lvl - b.lvl));
     const html = ordered.map((g) => {
-      g.items.sort((a, b) => (a.sk.sort_order - b.sk.sort_order) || a.sk.name.localeCompare(b.sk.name));
+      g.items.sort((a, b) => ((b.sk.in_template ? 1 : 0) - (a.sk.in_template ? 1 : 0)) || (a.sk.sort_order - b.sk.sort_order) || a.sk.name.localeCompare(b.sk.name));
       const done = g.items.filter((x) => x.row.grade).length;
       return '<section style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px"><h2 style="margin:0;font-size:16px;color:var(--deep)">' + esc(g.cat) + " · Level " + g.lvl + '</h2><span class="hint">' + done + " of " + g.items.length + " graded</span></div>" +
         '<div class="ggrid">' + g.items.map((x) => gradeCard(x.sk, x.row, false)).join("") + "</div></section>";
     }).join("");
-    return html + assignHtml();
+    const hasExtra = items.some((x) => !x.sk.in_template), hasTpl = items.some((x) => x.sk.in_template);
+    const legend = hasExtra && hasTpl ? '<p class="hint" style="margin:0"><span aria-hidden="true" style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#FBF1F7;border:1px solid #E9CFE0;vertical-align:-1px"></span> Tinted cards are extra skills. White cards are the template skills, listed first.</p>' : "";
+    return legend + html + assignHtml();
   }
   const q = gui.q.trim().toLowerCase();
   const list = data.skills.filter((s) => s.apparatus_id === appId && s.active)
@@ -1117,6 +1120,10 @@ function logView() {
   const actions = '<div class="noprint" style="display:flex;gap:8px"><button class="btn2 sec" type="button" id="lPrint">Print</button><button class="btn2" type="button" id="lExport">Export CSV</button></div>';
   return shell("log", "Class log", logRows().length + " skills", "home", actions, body);
 }
+function bomIf(text) {
+  /* The hidden UTF-8 marker is only needed for non-English characters, and some phone apps show it as stray symbols. */
+  return /[^\x00-\x7F]/.test(text) ? "\ufeff" + text : text;
+}
 function csvEscape(v) {
   const s = String(v === null || v === undefined ? "" : v);
   return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
@@ -1125,7 +1132,7 @@ function logCsv(rows) {
   const head = ["Student", "Student level", "Apparatus", "Skill category", "Skill level", "Skill", "Grade", "Date graded", "Graded by"];
   const lines = [head.map(csvEscape).join(",")];
   rows.forEach((r) => lines.push([r.student, r.slevel, r.apparatus, r.category, r.level, r.skill, r.grade, r.day, r.by].map(csvEscape).join(",")));
-  return "﻿" + lines.join("\r\n");
+  return bomIf(lines.join("\r\n"));
 }
 function downloadText(filename, text, type) {
   const blob = new Blob([text], { type: type || "text/csv;charset=utf-8" });
@@ -1219,7 +1226,7 @@ function buildSql(tables, stamp) {
   return L.join("\n");
 }
 function csvFor(t, rows) {
-  return "﻿" + [t.cols.join(",")].concat(rows.map((r) => t.cols.map((c) => csvEscape(r[c])).join(","))).join("\r\n") + "\r\n";
+  return bomIf([t.cols.join(",")].concat(rows.map((r) => t.cols.map((c) => csvEscape(r[c])).join(","))).join("\r\n") + "\r\n");
 }
 let crcTable = null;
 function crc32(bytes) {
@@ -1278,7 +1285,7 @@ const imp = { rows: null, file: "", done: "" };
 const IMP_COLS = ["name", "description", "apparatus", "category", "level", "sort_order", "in_template"];
 
 function parseCsv(text) {
-  text = String(text).replace(/^﻿/, "");
+  text = String(text).replace(/^\ufeff/, "");
   const rows = []; let row = [], cur = "", q = false;
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
@@ -1298,10 +1305,10 @@ function parseCsv(text) {
 function skillsCsv(skills) {
   const lines = [IMP_COLS.join(",")];
   skills.forEach((s) => lines.push([s.name, s.description || "", apparatusName(s.apparatus_id), s.category, s.level, s.sort_order || 0, s.in_template ? "yes" : "no"].map(csvEscape).join(",")));
-  return "﻿" + lines.join("\r\n");
+  return bomIf(lines.join("\r\n"));
 }
 function templateCsv() {
-  return "\ufeff" + IMP_COLS.join(",") + "\r\n";
+  return bomIf(IMP_COLS.join(",") + "\r\n");
 }
 function keyOf(appId, name, cat, lvl) { return [appId, String(name).trim().toLowerCase(), cat, String(lvl)].join("|"); }
 function analyseImport(table) {
@@ -1316,7 +1323,7 @@ function analyseImport(table) {
   const rows = [];
   table.slice(1).forEach((r, n) => {
     const get = (c) => (idx[c] === -1 ? "" : String(r[idx[c]] === undefined ? "" : r[idx[c]]).trim());
-    const o = { line: n + 2, name: get("name"), description: get("description"), apparatusText: get("apparatus"), categoryText: get("category"), levelText: get("level"), orderText: get("sort_order"), tplText: get("in_template").toLowerCase(), status: "new", note: "" };
+    const o = { line: n + 2, name: get("name"), description: get("description").replace(/\r\n?/g, "\n"), apparatusText: get("apparatus"), categoryText: get("category"), levelText: get("level"), orderText: get("sort_order"), tplText: get("in_template").toLowerCase(), status: "new", note: "" };
     const app = data.apparatus.find((a) => a.name.toLowerCase() === o.apparatusText.toLowerCase());
     const cat = CATS.find((c) => c.toLowerCase() === o.categoryText.toLowerCase());
     const lvl = /^[123]$/.test(o.levelText) ? Number(o.levelText) : null;
