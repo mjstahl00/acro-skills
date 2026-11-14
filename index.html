@@ -165,7 +165,7 @@
   .trashbtn:hover, .trashbtn:focus-visible { background: #FEE2E2; }
   .webonly { display: none; }
   @media (min-width: 900px) { button.webonly { display: inline-flex; } p.webonly, div.webonly { display: block; } }
-  .gcard.extra { background: #FBF1F7; border-color: #E9CFE0; }
+  .gcard.extra { background: #E6E3EA; border-color: #CBC6D2; }
   .gcard { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; }
   .gcard .nm { font-size: 16px; line-height: 22px; font-weight: 600; }
   .gcard .grow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -687,7 +687,7 @@ function todayStr() {
 }
 const sdata = { students: [], log: [], levels: [], instructors: {}, loaded: false };
 const sui = { q: "", inactive: false, key: "name", dir: "asc" };
-const gui = { apparatusId: null, tab: "mine", q: "", cat: "All", lvl: "All", assignOpen: false, studentId: null, fkey: "category", fdir: "asc" };
+const gui = { apparatusId: null, tab: "mine", q: "", cat: "All", lvl: "All", assignOpen: false, hideExtra: false, studentId: null, fkey: "category", fdir: "asc" };
 
 async function loadStudents() {
   const a = await fetchAll("students", ["name", "id"]);
@@ -839,8 +839,9 @@ function gradeBodyHtml(student) {
   const appId = gui.apparatusId;
   const myRows = sdata.log.filter((l) => l.student_id === student.id);
   if (gui.tab === "mine") {
-    const items = myRows.map((l) => ({ row: l, sk: skillById(l.skill_id) })).filter((x) => x.sk && x.sk.apparatus_id === appId);
-    if (!items.length) return '<p class="card">No skills for this apparatus yet. Use Assign a template below, or the Find a skill tab.</p>' + assignHtml();
+    const allItems = myRows.map((l) => ({ row: l, sk: skillById(l.skill_id) })).filter((x) => x.sk && x.sk.apparatus_id === appId);
+    const items = gui.hideExtra ? allItems.filter((x) => x.sk.in_template) : allItems;
+    if (!allItems.length) return '<p class="card">No skills for this apparatus yet. Use Assign a template below, or the Find a skill tab.</p>' + assignHtml();
     const groups = {};
     items.forEach((x) => { const k = x.sk.category + "|" + x.sk.level; (groups[k] = groups[k] || { cat: x.sk.category, lvl: x.sk.level, items: [] }).items.push(x); });
     const ordered = Object.keys(groups).map((k) => groups[k]).sort((a, b) => (CATS.indexOf(a.cat) - CATS.indexOf(b.cat)) || (a.lvl - b.lvl));
@@ -850,9 +851,12 @@ function gradeBodyHtml(student) {
       return '<section style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px"><h2 style="margin:0;font-size:16px;color:var(--deep)">' + esc(g.cat) + " · Level " + g.lvl + '</h2><span class="hint">' + done + " of " + g.items.length + " graded</span></div>" +
         '<div class="ggrid">' + g.items.map((x) => gradeCard(x.sk, x.row, false)).join("") + "</div></section>";
     }).join("");
-    const hasExtra = items.some((x) => !x.sk.in_template), hasTpl = items.some((x) => x.sk.in_template);
-    const legend = hasExtra && hasTpl ? '<p class="hint" style="margin:0"><span aria-hidden="true" style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#FBF1F7;border:1px solid #E9CFE0;vertical-align:-1px"></span> Tinted cards are extra skills. White cards are the template skills, listed first.</p>' : "";
-    return legend + html + assignHtml();
+    const hasExtra = allItems.some((x) => !x.sk.in_template), hasTpl = allItems.some((x) => x.sk.in_template);
+    const sw = (bg, bd) => '<span aria-hidden="true" style="display:inline-block;width:12px;height:12px;border-radius:3px;background:' + bg + ";border:1px solid " + bd + ';vertical-align:-1px"></span> ';
+    const legend = hasExtra && hasTpl ? '<div class="hint" style="margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px">' + "<span>White cards are template skills, grey cards are extra skills.</span>" +
+      '<label class="chk sm" style="min-height:0"><input id="gHideExtra" type="checkbox"' + (gui.hideExtra ? " checked" : "") + ">Hide extra skills</label></div>" : "";
+    const none = !items.length ? '<p class="card">Only extra skills are on this list. Uncheck Hide extra skills to see them.</p>' : "";
+    return legend + none + html + assignHtml();
   }
   const q = gui.q.trim().toLowerCase();
   const list = data.skills.filter((s) => s.apparatus_id === appId && s.active)
@@ -916,6 +920,10 @@ function wireGrade(id) {
   wireShell();
   const on = (sel, ev, fn) => { const el = document.querySelector(sel); if (el) el.addEventListener(ev, fn); };
   on("#gApp", "change", (e) => { gui.apparatusId = e.target.value; render(); });
+  const hx = document.getElementById("gradeBody");
+  if (hx) hx.addEventListener("change", (e) => {
+    if (e.target && e.target.id === "gHideExtra") { gui.hideExtra = e.target.checked; refreshGrade(id); const c = document.getElementById("gHideExtra"); if (c) c.focus(); }
+  });
   on("#gQ", "input", (e) => { gui.q = e.target.value; refreshGrade(id); });
   on("#gCat", "change", (e) => { gui.cat = e.target.value; refreshGrade(id); });
   on("#gLvl", "change", (e) => { gui.lvl = e.target.value; refreshGrade(id); });
@@ -1041,7 +1049,7 @@ function wireEditStudent(id) {
 }
 
 /* ---------- Log (class status) ---------- */
-const lui = { sel: [], app: "All", cat: "All", lvl: "All", grade: "All", by: "All", slevel: "All", q: "", ungraded: false, pages: true, pickerOpen: false };
+const lui = { sel: [], app: "All", cat: "All", lvl: "All", type: "All", grade: "All", by: "All", slevel: "All", q: "", ungraded: false, pages: true, pickerOpen: false };
 
 function gradeChip(g) {
   if (!g) return '<span class="hint">not graded</span>';
@@ -1060,14 +1068,16 @@ function logRows() {
     if (lui.app !== "All" && sk.apparatus_id !== lui.app) return;
     if (lui.cat !== "All" && sk.category !== lui.cat) return;
     if (lui.lvl !== "All" && String(sk.level) !== lui.lvl) return;
+    if (lui.type === "Template" && !sk.in_template) return;
+    if (lui.type === "Extra" && sk.in_template) return;
     if (lui.grade === "None" ? !!l.grade : (lui.grade !== "All" && l.grade !== lui.grade)) return;
     if (lui.by !== "All" && l.graded_by !== lui.by) return;
     const slv = levelOf(st.id, sk.apparatus_id);
     if (lui.slevel !== "All" && slv !== lui.slevel) return;
     if (q && sk.name.toLowerCase().indexOf(q) === -1) return;
-    out.push({ student_id: st.id, student: st.name, slevel: slv, apparatus: apparatusName(sk.apparatus_id), category: sk.category, level: sk.level, order: sk.sort_order || 0, skill: sk.name, grade: l.grade || "", day: l.graded_on ? String(l.graded_on).slice(0, 10) : "", by: l.graded_by ? (sdata.instructors[l.graded_by] || "") : "" });
+    out.push({ student_id: st.id, student: st.name, slevel: slv, apparatus: apparatusName(sk.apparatus_id), category: sk.category, level: sk.level, tpl: sk.in_template ? "Template" : "Extra", order: sk.sort_order || 0, skill: sk.name, grade: l.grade || "", day: l.graded_on ? String(l.graded_on).slice(0, 10) : "", by: l.graded_by ? (sdata.instructors[l.graded_by] || "") : "" });
   });
-  out.sort((a, b) => a.student.localeCompare(b.student) || a.apparatus.localeCompare(b.apparatus) || (CATS.indexOf(a.category) - CATS.indexOf(b.category)) || (a.level - b.level) || (a.order - b.order) || a.skill.localeCompare(b.skill));
+  out.sort((a, b) => a.student.localeCompare(b.student) || a.apparatus.localeCompare(b.apparatus) || (CATS.indexOf(a.category) - CATS.indexOf(b.category)) || (a.level - b.level) || ((a.tpl === "Template" ? 0 : 1) - (b.tpl === "Template" ? 0 : 1)) || (a.order - b.order) || a.skill.localeCompare(b.skill));
   return out;
 }
 function logListHtml() {
@@ -1079,12 +1089,12 @@ function logListHtml() {
     const lv = levelsText(g.id);
     const cards = g.rows.map((r) =>
       '<div class="scard"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div class="nm">' + esc(r.skill) + "</div>" + gradeChip(r.grade) + "</div>" +
-      '<div class="meta">' + esc(r.category) + " · Level " + r.level + (r.day ? " · " + fmtDate(r.day) : "") + (r.by ? " · by " + esc(r.by) : "") + "</div></div>").join("");
+      '<div class="meta">' + esc(r.category) + " · Level " + r.level + " · " + r.tpl + (r.day ? " · " + fmtDate(r.day) : "") + (r.by ? " · by " + esc(r.by) : "") + "</div></div>").join("");
     const trs = g.rows.map((r) =>
-      "<tr><td>" + esc(r.skill) + "</td><td>" + esc(r.category) + "</td><td>" + r.level + "</td><td>" + gradeChip(r.grade) + '</td><td style="white-space:nowrap">' + (r.day ? fmtDate(r.day) : "") + '</td><td style="font-weight:600;color:var(--deep)">' + esc(r.by) + "</td></tr>").join("");
+      "<tr><td>" + esc(r.skill) + "</td><td>" + esc(r.category) + "</td><td>" + r.level + "</td><td>" + r.tpl + "</td><td>" + gradeChip(r.grade) + '</td><td style="white-space:nowrap">' + (r.day ? fmtDate(r.day) : "") + '</td><td style="font-weight:600;color:var(--deep)">' + esc(r.by) + "</td></tr>").join("");
     const graded = g.rows.filter((r) => r.grade).length;
     return '<section class="stugroup"><div class="sghead"><h2>' + esc(g.name) + '</h2><span class="hint">' + (lv ? esc(lv) + " · " : "") + graded + " graded" + (g.rows.length !== graded ? ", " + (g.rows.length - graded) + " not yet" : "") + "</span></div>" +
-      '<div class="cards">' + cards + '</div><div class="tbl"><table style="min-width:700px"><thead><tr><th scope="col"><span class="plain">Skill</span></th><th scope="col"><span class="plain">Category</span></th><th scope="col"><span class="plain">Level</span></th><th scope="col"><span class="plain">Grade</span></th><th scope="col"><span class="plain">Date graded</span></th><th scope="col"><span class="plain">Graded by</span></th></tr></thead><tbody>' + trs + "</tbody></table></div></section>";
+      '<div class="cards">' + cards + '</div><div class="tbl"><table style="min-width:760px"><thead><tr><th scope="col"><span class="plain">Skill</span></th><th scope="col"><span class="plain">Category</span></th><th scope="col"><span class="plain">Level</span></th><th scope="col"><span class="plain">Type</span></th><th scope="col"><span class="plain">Grade</span></th><th scope="col"><span class="plain">Date graded</span></th><th scope="col"><span class="plain">Graded by</span></th></tr></thead><tbody>' + trs + "</tbody></table></div></section>";
   }).join("");
 }
 function pickerHtml() {
@@ -1108,6 +1118,7 @@ function logView() {
     '<div class="f"><label for="lSLv">Student level</label><select id="lSLv">' + slv + "</select></div>" +
     '<div class="f"><label for="lCat">Skill category</label><select id="lCat">' + cats + "</select></div>" +
     '<div class="f"><label for="lLvl">Skill level</label><select id="lLvl">' + lvls + "</select></div>" +
+    '<div class="f"><label for="lType">Skill type</label><select id="lType">' + opt([{ value: "All", label: "All" }, { value: "Template", label: "Template" }, { value: "Extra", label: "Extra" }], lui.type) + "</select></div>" +
     '<div class="f"><label for="lGr">Grade</label><select id="lGr">' + grades + "</select></div>" +
     '<div class="f"><label for="lBy">Graded by</label><select id="lBy">' + bys + "</select></div>" +
     '<div class="f wide"><label for="lQ">Search by skill</label><input id="lQ" type="search" value="' + esc(lui.q) + '" placeholder="Type part of a skill name"></div>' +
@@ -1129,9 +1140,9 @@ function csvEscape(v) {
   return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 function logCsv(rows) {
-  const head = ["Student", "Student level", "Apparatus", "Skill category", "Skill level", "Skill", "Grade", "Date graded", "Graded by"];
+  const head = ["Student", "Student level", "Apparatus", "Skill category", "Skill level", "Skill type", "Skill", "Grade", "Date graded", "Graded by"];
   const lines = [head.map(csvEscape).join(",")];
-  rows.forEach((r) => lines.push([r.student, r.slevel, r.apparatus, r.category, r.level, r.skill, r.grade, r.day, r.by].map(csvEscape).join(",")));
+  rows.forEach((r) => lines.push([r.student, r.slevel, r.apparatus, r.category, r.level, r.tpl, r.skill, r.grade, r.day, r.by].map(csvEscape).join(",")));
   return bomIf(lines.join("\r\n"));
 }
 function downloadText(filename, text, type) {
@@ -1173,12 +1184,13 @@ function wireLog() {
   bind("lSLv", "change", (e) => { lui.slevel = e.target.value; redo(); });
   bind("lCat", "change", (e) => { lui.cat = e.target.value; redo(); });
   bind("lLvl", "change", (e) => { lui.lvl = e.target.value; redo(); });
+  bind("lType", "change", (e) => { lui.type = e.target.value; redo(); });
   bind("lGr", "change", (e) => { lui.grade = e.target.value; redo(); });
   bind("lBy", "change", (e) => { lui.by = e.target.value; redo(); });
   bind("lQ", "input", (e) => { lui.q = e.target.value; redo(); });
   bind("lUng", "change", (e) => { lui.ungraded = e.target.checked; redo(); });
   bind("lPages", "change", (e) => { lui.pages = e.target.checked; document.getElementById("logList").className = lui.pages ? "pagebreaks" : ""; });
-  bind("lClear", "click", () => { Object.assign(lui, { sel: [], app: "All", cat: "All", lvl: "All", grade: "All", by: "All", slevel: "All", q: "", ungraded: false, pickerOpen: false }); render(); });
+  bind("lClear", "click", () => { Object.assign(lui, { sel: [], app: "All", cat: "All", lvl: "All", type: "All", grade: "All", by: "All", slevel: "All", q: "", ungraded: false, pickerOpen: false }); render(); });
   bind("lExport", "click", () => { downloadText("class-log-" + todayStr() + ".csv", logCsv(logRows())); });
   bind("lPrint", "click", () => { window.print(); });
 }
