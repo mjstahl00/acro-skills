@@ -280,6 +280,56 @@ function confirmDialog(title, text, okLabel, typeWord) {
     ov.querySelector("#cfNo").focus();
   });
 }
+function replaceDialog(title, text, options) {
+  return new Promise((resolve) => {
+    const prevFocus = document.activeElement;
+    const ov = document.createElement("div");
+    ov.className = "cfov";
+    ov.innerHTML = '<div class="cfbox" role="alertdialog" aria-modal="true" aria-labelledby="cfT" aria-describedby="cfD"><h2 id="cfT">' + esc(title) + '</h2><p id="cfD">' + esc(text) + '</p><div style="margin:0 0 16px 0"><label for="rpSel" style="display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:6px">Replace with</label><select id="rpSel" style="width:100%;height:48px;border:1.5px solid var(--field);border-radius:12px;padding:0 12px;font-size:16px;background:#FFFFFF"><option value="">Choose a skill…</option>' + options.map((o) => '<option value="' + esc(o.value) + '">' + esc(o.label) + "</option>").join("") + '</select></div><div class="cfbtns"><button type="button" class="btn2 sec" id="cfNo">Cancel</button><button type="button" class="btn2 danger" id="cfOk" disabled>Move grades and delete</button></div></div>';
+    const done = (v) => { document.removeEventListener("keydown", key); ov.remove(); if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} } resolve(v); };
+    const key = (e) => { if (e.key === "Escape") done(null); };
+    document.addEventListener("keydown", key);
+    ov.addEventListener("click", (e) => { if (e.target === ov) done(null); });
+    document.body.appendChild(ov);
+    const sel = ov.querySelector("#rpSel"), ok = ov.querySelector("#cfOk");
+    sel.addEventListener("change", () => { ok.disabled = !sel.value; });
+    ov.querySelector("#cfNo").addEventListener("click", () => done(null));
+    ok.addEventListener("click", () => done(sel.value));
+    sel.focus();
+  });
+}
+async function moveGrades(fromSkill, toSkillId) {
+  /* Moves every student's record from one skill to another. If a student already has the target skill, the newer grade wins. */
+  const fr = await sb.from("skill_log").select("*").eq("skill_id", fromSkill.id);
+  if (fr.error) return { error: fr.error.message };
+  const tr = await sb.from("skill_log").select("*").eq("skill_id", toSkillId);
+  if (tr.error) return { error: tr.error.message };
+  const targetBy = {};
+  (tr.data || []).forEach((r) => { targetBy[r.student_id] = r; });
+  let moved = 0, kept = 0;
+  for (const r of fr.data || []) {
+    const t = targetBy[r.student_id];
+    if (!t) {
+      if (r.grade) {
+        const ins = await sb.from("skill_log").insert({ student_id: r.student_id, skill_id: toSkillId, grade: r.grade, graded_on: r.graded_on, graded_by: r.graded_by });
+        if (ins.error) return { error: ins.error.message, moved: moved };
+        moved++;
+      } else {
+        const ins = await sb.from("skill_log").insert({ student_id: r.student_id, skill_id: toSkillId, grade: null, graded_on: null, graded_by: null });
+        if (ins.error) return { error: ins.error.message, moved: moved };
+      }
+    } else if (r.grade && (!t.grade || String(r.graded_on || "") > String(t.graded_on || ""))) {
+      const up = await sb.from("skill_log").update({ grade: r.grade, graded_on: r.graded_on, graded_by: r.graded_by }).eq("id", t.id);
+      if (up.error) return { error: up.error.message, moved: moved };
+      moved++;
+    } else if (r.grade) {
+      kept++;
+    }
+    const del = await sb.from("skill_log").delete().eq("id", r.id);
+    if (del.error) return { error: del.error.message, moved: moved };
+  }
+  return { moved: moved, kept: kept };
+}
 function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
@@ -539,7 +589,7 @@ function skillView(idOrNew, fromStudent) {
     '<div class="fld"><label class="lbl" for="kOrd">Order within the level</label><input id="kOrd" type="number" value="' + order + '"></div></div>' +
     '<div class="checks"><label class="chk" style="align-items:flex-start"><input id="kTpl" type="checkbox"' + (v.in_template ? " checked" : "") + '><span>In template<small>Check to hand this skill out when its category is assigned to a student.</small></span></label>' +
     '<label class="chk" style="align-items:flex-start"><input id="kAct" type="checkbox"' + (v.active ? " checked" : "") + '><span>Active<small>Uncheck to retire it. Existing grades are kept.</small></span></label></div>' +
-    '<div class="btnrow"><button class="btn2" type="submit" id="kSave">' + (fromStudent && isNew ? "Save and assign to student" : "Save skill") + '</button><a class="btn2 sec" href="#/' + backTo + '">Cancel</a>' + (isNew ? "" : '<button class="btn2 sec webonly" type="button" id="kDel" style="color:#B91C1C;border-color:#B91C1C">Delete skill</button>') + '</div>' + (isNew ? "" : '<p class="hint webonly" style="margin:8px 0 0 0">Delete is for mistakes such as duplicates. It is blocked while any student has a grade for this skill. To keep a skill but hide it, uncheck Active instead.</p>') + '</form>';
+    '<div class="btnrow"><button class="btn2" type="submit" id="kSave">' + (fromStudent && isNew ? "Save and assign to student" : "Save skill") + '</button><a class="btn2 sec" href="#/' + backTo + '">Cancel</a>' + (isNew ? "" : '<button class="btn2 sec webonly" type="button" id="kDel" style="color:#B91C1C;border-color:#B91C1C">Delete skill</button>') + '</div>' + (isNew ? "" : '<p class="hint webonly" style="margin:8px 0 0 0">Delete is for mistakes such as duplicates. If students have grades for this skill you can move them to another skill as part of the delete. To keep a skill but hide it, uncheck Active instead.</p>') + '</form>';
   return shell(fromStudent ? "students" : "library", isNew ? "Add skill" : "Edit skill", fromStudent ? "Adds the skill to the library and to " + ((sdata.students.find((x) => x.id === fromStudent) || {}).name || "this student") + "'s list." : "", backTo, "", body);
 }
 function wireSkill(idOrNew, fromStudent) {
@@ -557,8 +607,20 @@ function wireSkill(idOrNew, fromStudent) {
     const graded = (lr.data || []).filter((r) => r.grade);
     if (graded.length) {
       const names = graded.map((r) => { const st = sdata.students.find((x) => x.id === r.student_id); return (st ? st.name : "A student") + " (" + r.grade + ")"; });
-      setMessage("err", "Cannot delete " + sk.name + " yet. Graded for: " + names.join(", ") + ". Open each student, remove the skill from their list or clear the grade, then try again.");
-      render();
+      const others = data.skills.filter((x) => x.id !== sk.id && x.apparatus_id === sk.apparatus_id && x.active)
+        .sort((x, y) => x.name.localeCompare(y.name)).map((x) => ({ value: x.id, label: x.name + " · " + x.category + " · Level " + x.level }));
+      if (!others.length) { setMessage("err", "Cannot delete " + sk.name + " yet. It is graded for: " + names.join(", ") + ". Clear or reassign grades before deleting the skill."); render(); return; }
+      const pick = await replaceDialog("Replace this skill?", sk.name + " is graded for: " + names.join(", ") + ". Choose the skill that replaces it. Their grades move to that skill (if a student already has a grade there, the newer one is kept), then " + sk.name + " is deleted. This cannot be undone.", others);
+      if (!pick) { delBtn.disabled = false; return; }
+      const mv = await moveGrades(sk, pick);
+      if (mv.error) { setMessage("err", "Could not move the grades: " + mv.error + (mv.moved ? " (" + mv.moved + " already moved; run it again to finish)" : "")); render(); return; }
+      const d3 = await sb.from("skills").delete().eq("id", sk.id);
+      if (d3.error) { setMessage("err", "Grades were moved but the skill could not be deleted: " + d3.error.message); render(); return; }
+      const tn = (data.skills.find((x) => x.id === pick) || {}).name || "the other skill";
+      await loadSkills();
+      sdata.loaded = false;
+      setMessage("ok", "Moved " + mv.moved + " grade" + (mv.moved === 1 ? "" : "s") + " to " + tn + (mv.kept ? " (kept " + mv.kept + " newer grade" + (mv.kept === 1 ? "" : "s") + " already there)" : "") + " and deleted " + sk.name + ".");
+      go("library");
       return;
     }
     const assigned = (lr.data || []).length;
@@ -914,7 +976,7 @@ function gradeView(id) {
       '<div class="f"><label for="gCat">Category</label><select id="gCat">' + optionsHtml([{ value: "All", label: "All" }].concat(CATS.map((c) => ({ value: c, label: c }))), gui.cat) + "</select></div>" +
       '<div class="f"><label for="gLvl">Level</label><select id="gLvl">' + optionsHtml([{ value: "All", label: "All" }, { value: "1", label: "1" }, { value: "2", label: "2" }, { value: "3", label: "3" }], gui.lvl) + "</select></div></div>" : "") +
     "</div>" + '<div id="gradeBody" style="display:flex;flex-direction:column;gap:18px">' + gradeBodyHtml(st) + "</div>";
-  return shell("students", st.name, stats.graded + " of " + stats.total + " graded", "students", '<a class="rowbtn" href="#/student/' + id + '/edit">Edit student</a>', body);
+  return shell("students", st.name, stats.graded + " of " + stats.total + " graded", "students", '<div style="display:flex;gap:8px"><a class="rowbtn" href="#/student/' + id + '/history">History</a><a class="rowbtn" href="#/student/' + id + '/edit">Edit</a></div>', body);
 }
 function refreshGrade(id) {
   const st = sdata.students.find((s) => s.id === id);
@@ -1205,6 +1267,74 @@ function wireLog() {
   bind("lPrint", "click", () => { window.print(); });
 }
 
+/* ---------- Grade history ---------- */
+const hui = { studentId: "", rows: [], error: "", app: "All" };
+async function loadHistory(studentId) {
+  if (hui.studentId !== studentId) { hui.app = "All"; }
+  hui.studentId = studentId; hui.rows = []; hui.error = "";
+  for (let from = 0; ; from += 1000) {
+    const r = await sb.from("skill_log_history").select("*").eq("student_id", studentId).order("changed_at", { ascending: false }).range(from, from + 999);
+    if (r.error) { hui.error = r.error.message || "error"; return; }
+    hui.rows = hui.rows.concat(r.data || []);
+    if (!r.data || r.data.length < 1000) break;
+  }
+  hui.rows.sort((a, b) => (a.changed_at < b.changed_at ? 1 : a.changed_at > b.changed_at ? -1 : 0));
+}
+function fmtStamp(t) {
+  const d = new Date(t);
+  if (isNaN(d.getTime())) return "";
+  return MONTHS[d.getMonth()] + " " + d.getDate() + ", " + d.getFullYear() + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+function historyRows() {
+  return hui.rows.map((h) => {
+    const sk = skillById(h.skill_id);
+    return { stamp: h.changed_at, skill: sk ? sk.name : "(deleted skill)", apparatus: sk ? apparatusName(sk.apparatus_id) : "", apparatus_id: sk ? sk.apparatus_id : "", category: sk ? sk.category : "", level: sk ? sk.level : "", prev: h.previous_grade || "", grade: h.grade || "", by: h.changed_by ? (sdata.instructors[h.changed_by] || "") : "" };
+  }).filter((r) => hui.app === "All" || r.apparatus_id === hui.app);
+}
+function histChange(r) {
+  const chip = (g) => (g ? gradeChip(g) : '<span class="hint">none</span>');
+  if (!r.grade) return chip(r.prev) + ' <span class="hint">→ cleared</span>';
+  return chip(r.prev) + ' <span aria-hidden="true">→</span> ' + chip(r.grade);
+}
+function historyView(id) {
+  const st = sdata.students.find((x) => x.id === id);
+  if (!st) return shell("students", "History", "", "students", "", '<p class="card">That student was not found. <a href="#/students">Back to students</a></p>');
+  const back = "students/" + id;
+  if (hui.error) {
+    return shell("students", st.name + " history", "", back, "", '<p class="card">The grade history is not set up yet. Run the history SQL step in Supabase, then come back. (' + esc(hui.error) + ")</p>");
+  }
+  const rows = historyRows();
+  const apps = optionsHtml([{ value: "All", label: "All apparatus" }].concat(data.apparatus.map((a) => ({ value: a.id, label: a.name }))), hui.app);
+  let list;
+  if (!rows.length) {
+    list = '<p class="card">' + (hui.rows.length ? "Nothing for that apparatus." : "No grade changes recorded yet. Changes are recorded from the day the history was switched on.") + "</p>";
+  } else {
+    const cards = rows.map((r) => '<div class="scard"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div class="nm">' + esc(r.skill) + '</div><div style="white-space:nowrap">' + histChange(r) + "</div></div>" +
+      '<div class="meta">' + esc(r.apparatus) + (r.category ? " · " + esc(r.category) + " · Level " + r.level : "") + " · " + fmtStamp(r.stamp) + (r.by ? " · by " + esc(r.by) : "") + "</div></div>").join("");
+    const trs = rows.map((r) => '<tr><td style="white-space:nowrap">' + fmtStamp(r.stamp) + "</td><td>" + esc(r.skill) + "</td><td>" + esc(r.apparatus) + "</td><td>" + esc(r.category) + "</td><td>" + r.level + '</td><td style="white-space:nowrap">' + histChange(r) + '</td><td style="font-weight:600;color:var(--deep)">' + esc(r.by) + "</td></tr>").join("");
+    list = '<div class="cards">' + cards + '</div><div class="tbl"><table style="min-width:820px"><thead><tr><th scope="col"><span class="plain">When</span></th><th scope="col"><span class="plain">Skill</span></th><th scope="col"><span class="plain">Apparatus</span></th><th scope="col"><span class="plain">Category</span></th><th scope="col"><span class="plain">Level</span></th><th scope="col"><span class="plain">Change</span></th><th scope="col"><span class="plain">Graded by</span></th></tr></thead><tbody>' + trs + "</tbody></table></div>";
+  }
+  const body = '<div class="panel noprint"><div class="f"><label for="hApp">Apparatus</label><select id="hApp">' + apps + "</select></div></div>" + '<div id="histList" style="display:flex;flex-direction:column;gap:10px">' + list + "</div>" +
+    '<p class="hint">Every time a grade is set, changed or cleared, a line is added here. Newest first.</p>';
+  return shell("students", st.name + " history", rows.length + (rows.length === 1 ? " change" : " changes"), back, '<button class="btn2" type="button" id="hExport">Export CSV</button>', body);
+}
+function historyCsv(rows) {
+  const head = ["When", "Skill", "Apparatus", "Skill category", "Skill level", "Previous grade", "New grade", "Graded by"];
+  const lines = [head.map(csvEscape).join(",")];
+  rows.forEach((r) => lines.push([fmtStamp(r.stamp), r.skill, r.apparatus, r.category, r.level, r.prev, r.grade, r.by].map(csvEscape).join(",")));
+  return bomIf(lines.join("\r\n"));
+}
+function wireHistory(id) {
+  wireShell();
+  const a = document.getElementById("hApp");
+  if (a) a.addEventListener("change", (e) => { hui.app = e.target.value; render(); });
+  const x = document.getElementById("hExport");
+  if (x) x.addEventListener("click", () => {
+    const st = sdata.students.find((s) => s.id === id);
+    downloadText("history-" + (st ? st.name.replace(/[^A-Za-z0-9]+/g, "-") : "student") + "-" + todayStr() + ".csv", historyCsv(historyRows()));
+  });
+}
+
 /* ---------- Backup ---------- */
 async function fetchAll(table, orderCols) {
   const out = [];
@@ -1224,7 +1354,8 @@ const BACKUP_TABLES = [
   { name: "students", cols: ["id", "name", "active"], order: ["id"], conflict: "id" },
   { name: "student_levels", cols: ["student_id", "apparatus_id", "category"], order: ["student_id", "apparatus_id"], conflict: "student_id, apparatus_id", optional: true },
   { name: "instructors", cols: ["id", "name"], order: ["id"], conflict: "id", optional: true },
-  { name: "skill_log", cols: ["id", "student_id", "skill_id", "grade", "graded_on", "graded_by"], order: ["id"], conflict: "id" }
+  { name: "skill_log", cols: ["id", "student_id", "skill_id", "grade", "graded_on", "graded_by"], order: ["id"], conflict: "id" },
+  { name: "skill_log_history", cols: ["id", "student_id", "skill_id", "grade", "previous_grade", "changed_at", "changed_by"], order: ["id"], conflict: "id", optional: true }
 ];
 function sqlVal(v) {
   if (v === null || v === undefined) return "null";
@@ -1502,6 +1633,11 @@ async function render() {
   } else if (parts[0] === "student" && parts[1] === "new") {
     app.innerHTML = addStudentView();
     wireAddStudent();
+  } else if (parts[0] === "student" && parts[2] === "history") {
+    await loadHistory(parts[1]);
+    if (token !== renderToken) return;
+    app.innerHTML = historyView(parts[1]);
+    wireHistory(parts[1]);
   } else if (parts[0] === "student") {
     app.innerHTML = gradeView(parts[1]);
     wireGrade(parts[1]);
