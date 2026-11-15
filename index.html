@@ -215,7 +215,7 @@
   .printonly { display: none; }
   @media print {
     body { background: #FFFFFF !important; }
-    .nav, .noprint, .topbar2 .back, .foot { display: none !important; }
+    .nav, .noprint, .topbar2 .back, .foot, .infobtn { display: none !important; }
     .tbl { display: block !important; border: 0; overflow: visible; }
     .cards { display: none !important; }
     .page { padding: 0 !important; margin: 0 !important; }
@@ -894,6 +894,20 @@ function infoNote(sk) {
   if (!sk || !sk.description || !String(sk.description).trim()) return "";
   return '<p class="descnote" hidden>' + esc(sk.description) + "</p>";
 }
+function skNameHtml(sk, name) {
+  return '<div style="display:flex;align-items:flex-start;gap:6px">' + infoBtn(sk) + "<span>" + tplStar(sk) + esc(name) + retiredTag(sk) + "</span></div>";
+}
+function wireInfo() {
+  const pg = document.querySelector(".page");
+  if (!pg) return;
+  pg.addEventListener("click", (e) => {
+    const t = e.target.closest('[data-act="info"]');
+    if (!t) return;
+    const host = t.closest(".scard, td");
+    const note = host && host.querySelector(".descnote");
+    if (note) { const open = note.hidden; note.hidden = !open; t.setAttribute("aria-expanded", open ? "true" : "false"); }
+  });
+}
 function gradeCard(sk, row, find) {
   const g = row ? row.grade || "" : "";
   let right;
@@ -1144,7 +1158,7 @@ function logRows() {
     const slv = levelOf(st.id, sk.apparatus_id);
     if (lui.slevel !== "All" && slv !== lui.slevel) return;
     if (q && sk.name.toLowerCase().indexOf(q) === -1) return;
-    out.push({ student_id: st.id, student: st.name, slevel: slv, apparatus: apparatusName(sk.apparatus_id), category: sk.category, level: sk.level, tpl: sk.in_template ? "Template" : "Extra", retired: !sk.active, order: sk.sort_order || 0, skill: sk.name, grade: l.grade || "", day: l.graded_on ? String(l.graded_on).slice(0, 10) : "", by: l.graded_by ? (sdata.instructors[l.graded_by] || "") : "" });
+    out.push({ student_id: st.id, student: st.name, slevel: slv, apparatus: apparatusName(sk.apparatus_id), category: sk.category, level: sk.level, tpl: sk.in_template ? "Template" : "Extra", retired: !sk.active, sk: sk, desc: sk.description || "", order: sk.sort_order || 0, skill: sk.name, grade: l.grade || "", day: l.graded_on ? String(l.graded_on).slice(0, 10) : "", by: l.graded_by ? (sdata.instructors[l.graded_by] || "") : "" });
   });
   out.sort((a, b) => a.student.localeCompare(b.student) || a.apparatus.localeCompare(b.apparatus) || (CATS.indexOf(a.category) - CATS.indexOf(b.category)) || (a.level - b.level) || ((a.tpl === "Template" ? 0 : 1) - (b.tpl === "Template" ? 0 : 1)) || (a.order - b.order) || a.skill.localeCompare(b.skill));
   return out;
@@ -1160,10 +1174,10 @@ function logListHtml() {
   return groups.map((g) => {
     const lv = levelsText(g.id);
     const cards = g.rows.map((r) =>
-      '<div class="scard"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div class="nm">' + star(r) + esc(r.skill) + (r.retired ? '<span class="retag">Retired</span>' : "") + "</div>" + gradeChip(r.grade) + "</div>" +
-      '<div class="meta">' + esc(r.category) + " · Level " + r.level + (r.day ? " · " + fmtDate(r.day) : "") + (r.by ? " · by " + esc(r.by) : "") + "</div></div>").join("");
+      '<div class="scard"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div class="nm">' + skNameHtml(r.sk, r.skill) + "</div>" + gradeChip(r.grade) + "</div>" +
+      '<div class="meta">' + esc(r.category) + " · Level " + r.level + (r.day ? " · " + fmtDate(r.day) : "") + (r.by ? " · by " + esc(r.by) : "") + "</div>" + infoNote(r.sk) + "</div>").join("");
     const trs = g.rows.map((r) =>
-      "<tr><td>" + star(r) + esc(r.skill) + (r.retired ? '<span class="retag">Retired</span>' : "") + "</td><td>" + esc(r.category) + "</td><td>" + r.level + "</td><td>" + gradeChip(r.grade) + '</td><td style="white-space:nowrap">' + (r.day ? fmtDate(r.day) : "") + '</td><td style="font-weight:600;color:var(--deep)">' + esc(r.by) + "</td></tr>").join("");
+      "<tr><td>" + skNameHtml(r.sk, r.skill) + infoNote(r.sk) + "</td><td>" + esc(r.category) + "</td><td>" + r.level + "</td><td>" + gradeChip(r.grade) + '</td><td style="white-space:nowrap">' + (r.day ? fmtDate(r.day) : "") + '</td><td style="font-weight:600;color:var(--deep)">' + esc(r.by) + "</td></tr>").join("");
     const graded = g.rows.filter((r) => r.grade).length;
     return '<section class="stugroup"><div class="sghead"><h2>' + esc(g.name) + '</h2><span class="hint">' + (lv ? esc(lv) + " · " : "") + graded + " graded" + (g.rows.length !== graded ? ", " + (g.rows.length - graded) + " not yet" : "") + "</span></div>" +
       '<div class="cards">' + cards + '</div><div class="tbl"><table style="min-width:760px"><thead><tr><th scope="col"><span class="plain">Skill</span></th><th scope="col"><span class="plain">Category</span></th><th scope="col"><span class="plain">Level</span></th><th scope="col"><span class="plain">Grade</span></th><th scope="col"><span class="plain">Date graded</span></th><th scope="col"><span class="plain">Graded by</span></th></tr></thead><tbody>' + trs + "</tbody></table></div></section>";
@@ -1212,9 +1226,9 @@ function csvEscape(v) {
   return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 function logCsv(rows) {
-  const head = ["Student", "Student level", "Apparatus", "Skill category", "Skill level", "Skill type", "Skill status", "Skill", "Grade", "Date graded", "Graded by"];
+  const head = ["Student", "Student level", "Apparatus", "Skill category", "Skill level", "Skill type", "Skill status", "Skill", "Skill description", "Grade", "Date graded", "Graded by"];
   const lines = [head.map(csvEscape).join(",")];
-  rows.forEach((r) => lines.push([r.student, r.slevel, r.apparatus, r.category, r.level, r.tpl, r.retired ? "Retired" : "Active", r.skill, r.grade, r.day, r.by].map(csvEscape).join(",")));
+  rows.forEach((r) => lines.push([r.student, r.slevel, r.apparatus, r.category, r.level, r.tpl, r.retired ? "Retired" : "Active", r.skill, r.desc, r.grade, r.day, r.by].map(csvEscape).join(",")));
   return bomIf(lines.join("\r\n"));
 }
 function downloadText(filename, text, type) {
@@ -1227,6 +1241,7 @@ function downloadText(filename, text, type) {
 }
 function wireLog() {
   wireShell();
+  wireInfo();
   const redo = () => {
     document.getElementById("logList").innerHTML = logListHtml();
     const sub = document.querySelector(".topbar2 .sub");
@@ -1288,7 +1303,7 @@ function fmtStamp(t) {
 function historyRows() {
   return hui.rows.map((h) => {
     const sk = skillById(h.skill_id);
-    return { stamp: h.changed_at, skill: sk ? sk.name : "(deleted skill)", apparatus: sk ? apparatusName(sk.apparatus_id) : "", apparatus_id: sk ? sk.apparatus_id : "", category: sk ? sk.category : "", level: sk ? sk.level : "", prev: h.previous_grade || "", grade: h.grade || "", by: h.changed_by ? (sdata.instructors[h.changed_by] || "") : "" };
+    return { stamp: h.changed_at, sk: sk, desc: sk ? sk.description || "" : "", tpl: sk ? (sk.in_template ? "Template" : "Extra") : "", retired: sk ? !sk.active : false, skill: sk ? sk.name : "(deleted skill)", apparatus: sk ? apparatusName(sk.apparatus_id) : "", apparatus_id: sk ? sk.apparatus_id : "", category: sk ? sk.category : "", level: sk ? sk.level : "", prev: h.previous_grade || "", grade: h.grade || "", by: h.changed_by ? (sdata.instructors[h.changed_by] || "") : "" };
   }).filter((r) => hui.app === "All" || r.apparatus_id === hui.app);
 }
 function histChange(r) {
@@ -1309,23 +1324,24 @@ function historyView(id) {
   if (!rows.length) {
     list = '<p class="card">' + (hui.rows.length ? "Nothing for that apparatus." : "No grade changes recorded yet. Changes are recorded from the day the history was switched on.") + "</p>";
   } else {
-    const cards = rows.map((r) => '<div class="scard"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div class="nm">' + esc(r.skill) + '</div><div style="white-space:nowrap">' + histChange(r) + "</div></div>" +
-      '<div class="meta">' + esc(r.apparatus) + (r.category ? " · " + esc(r.category) + " · Level " + r.level : "") + " · " + fmtStamp(r.stamp) + (r.by ? " · by " + esc(r.by) : "") + "</div></div>").join("");
-    const trs = rows.map((r) => '<tr><td style="white-space:nowrap">' + fmtStamp(r.stamp) + "</td><td>" + esc(r.skill) + "</td><td>" + esc(r.apparatus) + "</td><td>" + esc(r.category) + "</td><td>" + r.level + '</td><td style="white-space:nowrap">' + histChange(r) + '</td><td style="font-weight:600;color:var(--deep)">' + esc(r.by) + "</td></tr>").join("");
+    const cards = rows.map((r) => '<div class="scard"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div class="nm">' + skNameHtml(r.sk, r.skill) + '</div><div style="white-space:nowrap">' + histChange(r) + "</div></div>" +
+      '<div class="meta">' + esc(r.apparatus) + (r.category ? " · " + esc(r.category) + " · Level " + r.level : "") + " · " + fmtStamp(r.stamp) + (r.by ? " · by " + esc(r.by) : "") + "</div>" + infoNote(r.sk) + "</div>").join("");
+    const trs = rows.map((r) => '<tr><td style="white-space:nowrap">' + fmtStamp(r.stamp) + "</td><td>" + skNameHtml(r.sk, r.skill) + infoNote(r.sk) + "</td><td>" + esc(r.apparatus) + "</td><td>" + esc(r.category) + "</td><td>" + r.level + '</td><td style="white-space:nowrap">' + histChange(r) + '</td><td style="font-weight:600;color:var(--deep)">' + esc(r.by) + "</td></tr>").join("");
     list = '<div class="cards">' + cards + '</div><div class="tbl"><table style="min-width:820px"><thead><tr><th scope="col"><span class="plain">When</span></th><th scope="col"><span class="plain">Skill</span></th><th scope="col"><span class="plain">Apparatus</span></th><th scope="col"><span class="plain">Category</span></th><th scope="col"><span class="plain">Level</span></th><th scope="col"><span class="plain">Change</span></th><th scope="col"><span class="plain">Graded by</span></th></tr></thead><tbody>' + trs + "</tbody></table></div>";
   }
   const body = '<div class="panel noprint"><div class="f"><label for="hApp">Apparatus</label><select id="hApp">' + apps + "</select></div></div>" + '<div id="histList" style="display:flex;flex-direction:column;gap:10px">' + list + "</div>" +
-    '<p class="hint">Every time a grade is set, changed or cleared, a line is added here. Newest first.</p>';
+    '<p class="hint">Every time a grade is set, changed or cleared, a line is added here. Newest first. * marks a template skill.</p>';
   return shell("students", st.name + " history", rows.length + (rows.length === 1 ? " change" : " changes"), back, '<button class="btn2" type="button" id="hExport">Export CSV</button>', body);
 }
 function historyCsv(rows) {
-  const head = ["When", "Skill", "Apparatus", "Skill category", "Skill level", "Previous grade", "New grade", "Graded by"];
+  const head = ["When", "Skill", "Skill description", "Apparatus", "Skill category", "Skill level", "Skill type", "Skill status", "Previous grade", "New grade", "Graded by"];
   const lines = [head.map(csvEscape).join(",")];
-  rows.forEach((r) => lines.push([fmtStamp(r.stamp), r.skill, r.apparatus, r.category, r.level, r.prev, r.grade, r.by].map(csvEscape).join(",")));
+  rows.forEach((r) => lines.push([fmtStamp(r.stamp), r.skill, r.desc, r.apparatus, r.category, r.level, r.tpl, r.sk ? (r.retired ? "Retired" : "Active") : "Deleted", r.prev, r.grade, r.by].map(csvEscape).join(",")));
   return bomIf(lines.join("\r\n"));
 }
 function wireHistory(id) {
   wireShell();
+  wireInfo();
   const a = document.getElementById("hApp");
   if (a) a.addEventListener("change", (e) => { hui.app = e.target.value; render(); });
   const x = document.getElementById("hExport");
