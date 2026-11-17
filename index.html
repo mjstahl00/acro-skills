@@ -413,14 +413,14 @@ const data = {
   loaded: false,
   loadedFor: null
 };
-const lib = { apparatusId: null, cat: "Basic", level: "All", q: "", retired: false, key: "level", dir: "asc" };
+const lib = { apparatusId: "All", cat: "Basic", level: "All", q: "", retired: false, key: "level", dir: "asc" };
 
 async function loadApparatus() {
   const { data: rows, error } = await sb.from("apparatus").select("id,name").order("name");
   if (error) { setMessage("err", "Could not load apparatus."); return; }
   data.apparatus = rows || [];
-  if (!lib.apparatusId || !data.apparatus.some((a) => a.id === lib.apparatusId)) {
-    lib.apparatusId = data.apparatus.length ? data.apparatus[0].id : null;
+  if (lib.apparatusId !== "All" && !data.apparatus.some((a) => a.id === lib.apparatusId)) {
+    lib.apparatusId = "All";
   }
 }
 async function loadSkills() {
@@ -454,9 +454,10 @@ function wireShell() {
 }
 
 /* ---------- Skills Library ---------- */
+function appName(id) { const a = data.apparatus.find((x) => x.id === id); return a ? a.name : ""; }
 function visibleSkills() {
   const q = lib.q.trim().toLowerCase();
-  let rows = data.skills.filter((r) => r.apparatus_id === lib.apparatusId).filter((r) => lib.cat === "All" || r.category === lib.cat)
+  let rows = data.skills.filter((r) => lib.apparatusId === "All" || r.apparatus_id === lib.apparatusId).filter((r) => lib.cat === "All" || r.category === lib.cat)
     .filter((r) => lib.level === "All" || String(r.level) === lib.level)
     .filter((r) => q === "" || r.name.toLowerCase().indexOf(q) !== -1)
     .filter((r) => lib.retired || r.active);
@@ -464,6 +465,7 @@ function visibleSkills() {
   const k = lib.key;
   rows.sort((a, b) => {
     if (k === "name") return a.name.localeCompare(b.name) * dir;
+    if (k === "apparatus") return (appName(a.apparatus_id).localeCompare(appName(b.apparatus_id)) || (a.sort_order - b.sort_order)) * dir;
     let x = a[k], y = b[k];
     if (typeof x === "boolean") { x = x ? 1 : 0; y = y ? 1 : 0; }
     if (x === y) return (a.sort_order - b.sort_order) || a.name.localeCompare(b.name);
@@ -475,20 +477,21 @@ function listHtml() {
   if (!data.loaded) return '<p class="hint" aria-busy="true">Loading…</p>';
   const rows = visibleSkills();
   if (!rows.length) {
-    return '<p class="card">' + (data.skills.some((x) => x.apparatus_id === lib.apparatusId) ? "No skills match these filters." : "No skills yet for this apparatus. Tap Add skill to create the first one.") + "</p>";
+    return '<p class="card">' + (data.skills.some((x) => lib.apparatusId === "All" || x.apparatus_id === lib.apparatusId) ? "No skills match these filters." : "No skills yet for this apparatus. Tap Add skill to create the first one.") + "</p>";
   }
   const cards = rows.map((r) =>
     '<div class="scard"><div class="nm">' + tplStar(r) + esc(r.name) + '</div>' +
-    '<div class="meta">' + esc(r.category) + " · Level " + r.level + " · Order " + r.sort_order + (r.active ? "" : " · Retired") + "</div>" +
+    '<div class="meta">' + (lib.apparatusId === "All" ? esc(appName(r.apparatus_id)) + " · " : "") + esc(r.category) + " · Level " + r.level + " · Order " + r.sort_order + (r.active ? "" : " · Retired") + "</div>" +
     '<div class="bot"><div class="checks2"><label class="chk sm"><input type="checkbox" data-act="tpl" data-id="' + r.id + '"' + (r.in_template ? " checked" : "") + ' aria-label="In template: ' + esc(r.name) + '">In template</label>' +
     '<label class="chk sm"><input type="checkbox" data-act="active" data-id="' + r.id + '"' + (r.active ? " checked" : "") + ' aria-label="Active: ' + esc(r.name) + '">Active</label></div>' +
     '<div class="acts"><a class="rowbtn sm" href="#/skill/' + r.id + '">Edit</a><button class="rowbtn sm" type="button" data-act="copy" data-id="' + r.id + '">Copy</button></div></div></div>').join("");
-  const cols = [["sort_order", "Order", 80], ["name", "Name", 0], ["category", "Category", 130], ["level", "Level", 90], ["in_template", "In template", 120], ["active", "Active", 100]];
+  const cols = [["sort_order", "Order", 80], ["name", "Name", 0]].concat(lib.apparatusId === "All" ? [["apparatus", "Apparatus", 120]] : []).concat([["category", "Category", 130], ["level", "Level", 90], ["in_template", "In template", 120], ["active", "Active", 100]]);
+  const allApp = lib.apparatusId === "All";
   const head = cols.map((c) =>
     '<th scope="col" aria-sort="' + (lib.key === c[0] ? (lib.dir === "asc" ? "ascending" : "descending") : "none") + '"' + (c[2] ? ' style="width:' + c[2] + 'px"' : "") + '>' +
     '<button type="button" data-act="sort" data-key="' + c[0] + '"><span>' + c[1] + '</span><span aria-hidden="true" style="font-size:11px">' + (lib.key === c[0] ? (lib.dir === "asc" ? "▲" : "▼") : "") + "</span></button></th>").join("");
   const trs = rows.map((r) =>
-    "<tr><td>" + r.sort_order + '</td><td style="font-weight:600">' + tplStar(r) + esc(r.name) + (r.active ? "" : ' <span class="hint">(retired)</span>') + "</td><td>" + esc(r.category) + "</td><td>" + r.level + "</td>" +
+    "<tr><td>" + r.sort_order + '</td><td style="font-weight:600">' + tplStar(r) + esc(r.name) + (r.active ? "" : ' <span class="hint">(retired)</span>') + "</td>" + (allApp ? "<td>" + esc(appName(r.apparatus_id)) + "</td>" : "") + "<td>" + esc(r.category) + "</td><td>" + r.level + "</td>" +
     '<td><input type="checkbox" data-act="tpl" data-id="' + r.id + '"' + (r.in_template ? " checked" : "") + ' aria-label="In template: ' + esc(r.name) + '"></td>' +
     '<td><input type="checkbox" data-act="active" data-id="' + r.id + '"' + (r.active ? " checked" : "") + ' aria-label="Active: ' + esc(r.name) + '"></td>' +
     '<td><div style="display:flex;gap:8px"><a class="rowbtn" href="#/skill/' + r.id + '">Edit</a><button class="rowbtn" type="button" data-act="copy" data-id="' + r.id + '">Copy</button></div></td></tr>').join("");
@@ -497,7 +500,7 @@ function listHtml() {
     '<p class="hint">Select "In Template" will add that skill to the template for that category which can then be assigned to a student. Retiring a skill hides it without deleting any grades.</p>';
 }
 function libraryView() {
-  const apps = optionsHtml(data.apparatus.map((a) => ({ value: a.id, label: a.name })), lib.apparatusId);
+  const apps = optionsHtml([{ value: "All", label: "All" }].concat(data.apparatus.map((a) => ({ value: a.id, label: a.name }))), lib.apparatusId);
   const cats = optionsHtml([{ value: "All", label: "All" }].concat(CATS.map((c) => ({ value: c, label: c }))), lib.cat);
   const lvls = optionsHtml([{ value: "All", label: "All" }, { value: "1", label: "1" }, { value: "2", label: "2" }, { value: "3", label: "3" }], lib.level);
   const count = data.loaded ? visibleSkills().length + " shown" : "";
@@ -578,7 +581,7 @@ function skillView(idOrNew, fromStudent) {
     return shell("library", "Skill", "", "library", "", '<p class="card">That skill was not found. <a href="#/library">Back to the library</a></p>');
   }
   if (fromStudent && gui.apparatusId) lib.apparatusId = gui.apparatusId;
-  const v = sk || { name: "", description: "", apparatus_id: lib.apparatusId, category: lib.cat === "All" ? "Basic" : lib.cat, level: lib.level === "All" ? 1 : Number(lib.level), sort_order: null, in_template: false, active: true };
+  const v = sk || { name: "", description: "", apparatus_id: lib.apparatusId === "All" ? (data.apparatus[0] && data.apparatus[0].id) || null : lib.apparatusId, category: lib.cat === "All" ? "Basic" : lib.cat, level: lib.level === "All" ? 1 : Number(lib.level), sort_order: null, in_template: false, active: true };
   const order = v.sort_order === null ? nextOrder(v.apparatus_id, v.category, v.level) : v.sort_order;
   const body = '<form class="formcard" id="skillForm" novalidate>' +
     '<div class="fld"><label class="lbl" for="kName">Skill name</label><textarea id="kName" rows="2">' + esc(v.name) + "</textarea></div>" +
@@ -657,7 +660,7 @@ function wireSkill(idOrNew, fromStudent) {
       render();
       return;
     }
-    lib.apparatusId = row.apparatus_id;
+    if (lib.apparatusId !== "All") lib.apparatusId = row.apparatus_id;
     await loadSkills();
     if (isNew && fromStudent && res.data) {
       const lr = await sb.from("skill_log").insert({ student_id: fromStudent, skill_id: res.data.id }).select().single();
@@ -1737,7 +1740,7 @@ async function signOut() {
   data.apparatus = [];
   data.skills = [];
   data.loaded = false;
-  lib.apparatusId = null;
+  lib.apparatusId = "All";
   sdata.loaded = false;
   sdata.students = [];
   sdata.log = [];
