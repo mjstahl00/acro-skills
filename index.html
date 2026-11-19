@@ -489,7 +489,7 @@ function listHtml() {
     '<div class="bot"><div class="checks2"><label class="chk sm"><input type="checkbox" data-act="tpl" data-id="' + r.id + '"' + (r.in_template ? " checked" : "") + ' aria-label="In template: ' + esc(r.name) + '">In template</label>' +
     '<label class="chk sm"><input type="checkbox" data-act="active" data-id="' + r.id + '"' + (r.active ? " checked" : "") + ' aria-label="Active: ' + esc(r.name) + '">Active</label></div>' +
     '<div class="acts"><a class="rowbtn sm" href="#/skill/' + r.id + '">Edit</a><button class="rowbtn sm" type="button" data-act="copy" data-id="' + r.id + '">Copy</button></div></div></div>').join("");
-  const cols = [["sort_order", "Order", 78], ["name", "Name", 0]].concat(lib.apparatusId === "All" ? [["apparatus", "Apparatus", 118]] : []).concat([["category", "Category", 128], ["level", "Level", 82], ["in_template", "In template", 112], ["active", "Active", 90]]);
+  const cols = [["sort_order", "Order", 60], ["name", "Name", 0]].concat(lib.apparatusId === "All" ? [["apparatus", "Apparatus", 118]] : []).concat([["category", "Category", 128], ["level", "Level", 82], ["in_template", "In template", 96], ["active", "Active", 76]]);
   const allApp = lib.apparatusId === "All";
   const head = cols.map((c) =>
     '<th scope="col" aria-sort="' + (lib.key === c[0] ? (lib.dir === "asc" ? "ascending" : "descending") : "none") + '"' + (c[2] ? ' style="width:' + c[2] + 'px"' : "") + '>' +
@@ -1229,7 +1229,7 @@ function logView() {
     '<p class="printonly">Printed ' + fmtDate(todayStr()) + " &nbsp;·&nbsp; (*) are template skills</p>" +
     '<div id="logList" class="' + (lui.pages ? "pagebreaks" : "") + '">' + logListHtml() + "</div>" +
     '<p class="hint noprint">Shows each student’s current grade for each skill. Skills marked (*) are template skills. Only active students are listed.</p>';
-  const actions = '<div class="noprint" style="display:flex;gap:8px"><button class="btn2 sec" type="button" id="lPrint">Print</button><button class="btn2" type="button" id="lExport">Export CSV</button></div>';
+  const actions = '<div class="noprint stuacts" style="display:flex;gap:8px"><button class="btn2 sec" type="button" id="lPrint">Print</button><button class="btn2" type="button" id="lExport">Export CSV</button></div>';
   return shell("log", "Log", logRows().length + " skills", "home", actions, body);
 }
 function bomIf(text) {
@@ -1353,7 +1353,7 @@ function historyView(id) {
   }
   const body = '<div class="panel noprint"><div class="f"><label for="hApp">Apparatus</label><select id="hApp">' + apps + "</select></div></div>" + '<div id="histList" style="display:flex;flex-direction:column;gap:10px">' + list + "</div>" +
     '<p class="hint">Every time a grade is set, changed or cleared, a line is added here. Skills marked (*) are template skills.</p>';
-  return shell("students", st.name + " history", rows.length + (rows.length === 1 ? " change" : " changes"), back, '<button class="btn2" type="button" id="hExport">Export CSV</button>', body);
+  return shell("students", st.name + " history", rows.length + (rows.length === 1 ? " change" : " changes"), back, '<div class="stuacts" style="display:flex;gap:8px"><button class="btn2" type="button" id="hExport">Export CSV</button></div>', body);
 }
 function historyCsv(rows) {
   const head = ["When", "Skill", "Skill description", "Apparatus", "Skill category", "Skill level", "Skill type", "Skill status", "Previous grade", "New grade", "Graded by"];
