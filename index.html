@@ -207,6 +207,7 @@
     .topbar2 .back { display: none; }
     .topbar2 h1 { font-size: 28px; line-height: 34px; }
   }
+  @media (max-width: 899px) { .stuacts { width: 100%; } .stuacts .btn2 { flex: 1; } }
   .stugroup { margin: 0 0 22px 0; }
   .sghead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 8px 0; }
   .sghead h2 { margin: 0; font-size: 20px; color: var(--deep); }
@@ -260,7 +261,7 @@ function confirmDialog(title, text, okLabel, typeWord) {
     const prevFocus = document.activeElement;
     const ov = document.createElement("div");
     ov.className = "cfov";
-    ov.innerHTML = '<div class="cfbox" role="alertdialog" aria-modal="true" aria-labelledby="cfT" aria-describedby="cfD"><h2 id="cfT">' + esc(title) + '</h2><p id="cfD">' + esc(text) + "</p>" + (typeWord ? '<div class="fld" style="margin:0 0 16px 0"><label class="lbl" for="cfType">Type ' + esc(typeWord) + ' to confirm</label><input id="cfType" type="text" autocomplete="off"></div>' : "") + '<div class="cfbtns"><button type="button" class="btn2 sec" id="cfNo">Cancel</button><button type="button" class="btn2 danger" id="cfOk">' + esc(okLabel || "OK") + "</button></div></div>";
+    ov.innerHTML = '<div class="cfbox" role="alertdialog" aria-modal="true" aria-labelledby="cfT" aria-describedby="cfD"><h2 id="cfT">' + esc(title) + '</h2><p id="cfD">' + esc(text) + "</p>" + (typeWord ? '<div class="fld" style="margin:0 0 16px 0;display:flex;flex-direction:column;gap:6px"><label class="lbl" for="cfType" style="font-size:13px;font-weight:600;color:var(--muted)">Type ' + esc(typeWord) + ' to confirm</label><input id="cfType" type="text" autocomplete="off" style="height:48px;border:1.5px solid var(--field);border-radius:12px;padding:0 12px;font-size:16px;color:var(--text);background:#FFFFFF;width:100%;box-sizing:border-box"></div>' : "") + '<div class="cfbtns"><button type="button" class="btn2 sec" id="cfNo">Cancel</button><button type="button" class="btn2 danger" id="cfOk">' + esc(okLabel || "OK") + "</button></div></div>";
     const done = (v) => { document.removeEventListener("keydown", key); ov.remove(); if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} } resolve(v); };
     const key = (e) => {
       if (e.key === "Escape") done(false);
@@ -393,10 +394,10 @@ function homeView() {
   return '<main class="screen">' +
     '<img class="logo" src="logo.png" alt="Christine\'s Cirque du Sadism" width="250" height="250" style="width:250px;height:250px;max-width:70vw;max-height:70vw">' +
     '<nav class="tiles" aria-label="Main">' +
-    tile("students", icons.students, "Students", "Grade skills and manage lists", true) +
-    tile("library", icons.library, "Skills Library", "Templates and every skill", false) +
-    tile("log", icons.log, "Log", "Every graded skill, by date", false) +
-    tile("settings", icons.settings, "Settings", "Apparatus list", false) +
+    tile("students", icons.students, "Students", "Add students, assign skills, grade skills and view history", true) +
+    tile("library", icons.library, "Skills Library", "Add and manage all skills", false) +
+    tile("log", icons.log, "Log", "Student skills and grades log", false) +
+    tile("settings", icons.settings, "Settings", "System and Instructor Account Settings", false) +
     "</nav>" +
     '<p class="who">' + who + "</p>" +
     '<button class="link spacer" type="button" id="signout">Sign out</button>' +
@@ -670,7 +671,7 @@ function wireSkill(idOrNew, fromStudent) {
         sdata.log.push(lr.data);
         setMessage("ok", row.name + " saved and added to their list.");
       }
-      gui.apparatusId = row.apparatus_id;
+      if (gui.apparatusId !== "All") gui.apparatusId = row.apparatus_id;
       gui.tab = "find";
       gui.q = row.name;
       gui.cat = "All";
@@ -691,14 +692,15 @@ function settingsView() {
     '<section class="setsec"><h2>My name</h2><p class="hint">This is the name shown as "graded by" on everything you grade.</p>' +
     '<form class="formcard" id="nameForm" novalidate style="margin:0"><div class="fld"><label class="lbl" for="myName">Display name</label><input id="myName" type="text" value="' + esc(state.name) + '" autocomplete="name"></div>' +
     '<div class="btnrow"><button class="btn2" type="submit">Save name</button></div></form></section>' +
-    '<section class="setsec"><h2>Apparatus</h2><p class="hint">These names feed the dropdowns across the app, listed alphabetically. Change a name and tap Save. It updates everywhere, and no grades are lost.</p>' +
+    '<section class="setsec"><h2>Apparatus</h2><p class="hint">These are the apparatus names used across the app. To add one, enter a name below and tap Add apparatus. To rename one, change its name and tap Save. Renaming updates it everywhere. To delete an apparatus, contact the admin.</p>' +
     '<div class="list" style="max-width:640px">' + rows + "</div>" +
-    '<form class="formcard" id="appForm" novalidate style="margin:0"><div class="fld"><label class="lbl" for="aName">New apparatus</label><input id="aName" type="text" placeholder="Sling" autocomplete="off"></div>' +
+    '<form class="formcard" id="appForm" novalidate style="margin:0"><div class="fld"><label class="lbl" for="aName">New apparatus</label><input id="aName" type="text" placeholder="Enter new apparatus name" autocomplete="off"></div>' +
     '<div class="btnrow"><button class="btn2" type="submit">Add apparatus</button></div></form></section>' +
-    '<section class="setsec"><h2>Backup</h2><p class="hint">The free Supabase plan keeps no backups, so download one regularly, for example before each class session.</p>' +
-    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px"><button class="btn2" type="button" id="bkSql">Download backup (SQL file)</button><button class="btn2 sec" type="button" id="bkCsv">Download backup (CSV files)</button></div>' +
-    '<p id="bkMsg" role="status" class="msg"></p>' +
-    '<p class="hint"><b>To restore:</b> open the Supabase SQL Editor, click New query, paste in the whole .sql file and press Run. It only adds rows that are missing, so running it twice is safe. The CSV download is a zip with one spreadsheet per table, for looking at the data in Excel. Keep backup files private because they contain student names.</p></section>';
+    '<section class="setsec"><h2>Backup</h2>' +
+    '<p class="hint">The free Supabase plan keeps no backups. Periodically download a backup (SQL file) to avoid losing information. If information is ever lost, contact the admin and provide your last backup file.</p>' +
+    '<p class="hint">The CSV download contains the raw data across multiple files to review in Excel or Google Sheets. Keep backup files private because they contain student names.</p>' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px"><button class="btn2" type="button" id="bkSql">Download backup (SQL file)</button><button class="btn2 sec" type="button" id="bkCsv">Download CSV files</button></div>' +
+    '<p id="bkMsg" role="status" class="msg"></p></section>';
   return shell("settings", "Settings", "", "home", "", body);
 }
 function wireSettings() {
@@ -728,7 +730,7 @@ function wireSettings() {
   document.getElementById("appForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const name = document.getElementById("aName").value.trim();
-    if (!name) { setMessage("err", "Type a name first."); render(); return; }
+    if (!name) { setMessage("err", "Type an apparatus name first."); render(); return; }
     const { error } = await sb.from("apparatus").insert({ name: name });
     if (error) {
       setMessage("err", /duplicate|unique/i.test(error.message || "") ? "That apparatus already exists." : "Could not add the apparatus.");
@@ -753,7 +755,7 @@ function todayStr() {
 }
 const sdata = { students: [], log: [], levels: [], instructors: {}, loaded: false };
 const sui = { q: "", inactive: false, key: "name", dir: "asc" };
-const gui = { apparatusId: null, tab: "mine", q: "", cat: "All", lvl: "All", assignOpen: false, hideExtra: false, studentId: null, fkey: "category", fdir: "asc" };
+const gui = { apparatusId: "All", tab: "mine", q: "", cat: "All", lvl: "All", assignOpen: false, hideExtra: false, studentId: null, fkey: "category", fdir: "asc" };
 
 async function loadStudents() {
   const a = await fetchAll("students", ["name", "id"]);
@@ -839,13 +841,13 @@ function wireStudents() {
 function addStudentView() {
   const rows = data.apparatus.map((a, i) =>
     '<div style="display:flex;flex-direction:column;gap:6px;padding:8px 0;border-top:1px solid #EEE6F2">' +
-    '<label class="chk"><input id="ap' + i + '" type="checkbox"' + (i === 0 ? " checked" : "") + ' data-app="' + a.id + '"><span style="font-weight:600;font-size:16px">' + esc(a.name) + "</span></label>" +
-    '<div class="fld" style="padding-left:32px"><label class="lbl" for="ct' + i + '">Starting category for ' + esc(a.name) + ' (also their current level)</label><select id="ct' + i + '">' + optionsHtml(CATS.map((c) => ({ value: c, label: c })), "Basic") + "</select></div></div>").join("");
+    '<label class="chk"><input id="ap' + i + '" type="checkbox" data-app="' + a.id + '"><span style="font-weight:600;font-size:16px">' + esc(a.name) + "</span></label>" +
+    '<div class="fld" style="padding-left:32px"><label class="sr" for="ct' + i + '">Category for ' + esc(a.name) + '</label><select id="ct' + i + '">' + optionsHtml(CATS.map((c) => ({ value: c, label: c })), "Basic") + "</select></div></div>").join("");
   const body = '<form class="formcard" id="stuForm" novalidate>' +
     '<div class="fld"><label class="lbl" for="sName">Student name</label><input id="sName" type="text" autocomplete="off"></div>' +
-    '<label class="chk" style="align-items:flex-start"><input id="sAct" type="checkbox" checked><span>Active<small style="display:block;color:#5E5566;font-size:13px;line-height:18px">Inactive students are hidden from the list but keep their grades.</small></span></label>' +
-    '<fieldset style="margin:0;padding:12px 14px;border:1.5px solid var(--border);border-radius:14px"><legend style="padding:0 6px;font-size:15px;font-weight:700;color:var(--deep)">Start them on</legend>' + (rows || '<p class="hint">Add an apparatus in Settings first.</p>') +
-    '<p class="hint" style="margin-top:8px">Check every apparatus to start. Saving adds the skills marked In template for each category chosen. To add another template later, open the student and tap Assign a template.</p></fieldset>' +
+    '<label class="chk" style="align-items:flex-start"><input id="sAct" type="checkbox" checked><span>Active<small style="display:block;color:#5E5566;font-size:13px;line-height:18px">Inactive students are hidden from the list. Their grades are retained.</small></span></label>' +
+    '<fieldset style="margin:0;padding:12px 14px;border:1.5px solid var(--border);border-radius:14px"><legend style="padding:0 6px;font-size:15px;font-weight:700;color:var(--deep)">Start them on</legend><p class="hint" style="margin:0 0 6px">Check an apparatus to add its template skills to the student\'s skills list. Multiple apparatuses can be selected before clicking Save. The category chosen (Basic, Intermediate, Advanced, Expert) determines which template is applied and sets the student\'s level for that apparatus.</p>' + (rows || '<p class="hint">Add an apparatus in Settings first.</p>') +
+    '<p class="hint" style="margin-top:8px">Additional templates can be added after a new student is created, from their page in the Students area. New apparatuses can be added under Settings.</p></fieldset>' +
     '<div class="btnrow"><button class="btn2" type="submit" id="sSave">Save student</button><a class="btn2 sec" href="#/students">Cancel</a></div></form>';
   return shell("students", "Add student", "", "students", "", body);
 }
@@ -914,7 +916,7 @@ function wireInfo() {
 function gradeCard(sk, row, find) {
   const g = row ? row.grade || "" : "";
   let right;
-  if (find) right = esc(sk.category) + "<br>Level " + sk.level;
+  if (find) right = (gui.apparatusId === "All" ? esc(appName(sk.apparatus_id)) + "<br>" : "") + esc(sk.category) + "<br>Level " + sk.level;
   else if (g) right = "Graded " + fmtDate(row.graded_on) + (row.graded_by && sdata.instructors[row.graded_by] ? "<br><b style=\"color:#51165F\">by " + esc(sdata.instructors[row.graded_by]) + "</b>" : "");
   else right = "Not graded yet";
   const nmHtml = '<div class="nm" style="display:flex;align-items:flex-start;gap:6px">' + infoBtn(sk) + "<span>" + tplStar(sk) + esc(sk.name) + retiredTag(sk) + "</span></div>";
@@ -925,16 +927,16 @@ function gradeBodyHtml(student) {
   const appId = gui.apparatusId;
   const myRows = sdata.log.filter((l) => l.student_id === student.id);
   if (gui.tab === "mine") {
-    const allItems = myRows.map((l) => ({ row: l, sk: skillById(l.skill_id) })).filter((x) => x.sk && x.sk.apparatus_id === appId);
+    const allItems = myRows.map((l) => ({ row: l, sk: skillById(l.skill_id) })).filter((x) => x.sk && (appId === "All" || x.sk.apparatus_id === appId));
     const items = gui.hideExtra ? allItems.filter((x) => x.sk.in_template) : allItems;
-    if (!allItems.length) return '<p class="card">No skills for this apparatus yet. Use Assign a template below, or the Find a skill tab.</p>' + assignHtml();
+    if (!allItems.length) return '<p class="card">No skills yet. Use Assign a template below, or the Find a skill tab.</p>' + assignHtml();
     const groups = {};
-    items.forEach((x) => { const k = x.sk.category + "|" + x.sk.level; (groups[k] = groups[k] || { cat: x.sk.category, lvl: x.sk.level, items: [] }).items.push(x); });
-    const ordered = Object.keys(groups).map((k) => groups[k]).sort((a, b) => (CATS.indexOf(a.cat) - CATS.indexOf(b.cat)) || (a.lvl - b.lvl));
+    items.forEach((x) => { const k = x.sk.apparatus_id + "|" + x.sk.category + "|" + x.sk.level; (groups[k] = groups[k] || { app: appName(x.sk.apparatus_id), cat: x.sk.category, lvl: x.sk.level, items: [] }).items.push(x); });
+    const ordered = Object.keys(groups).map((k) => groups[k]).sort((a, b) => a.app.localeCompare(b.app) || (CATS.indexOf(a.cat) - CATS.indexOf(b.cat)) || (a.lvl - b.lvl));
     const html = ordered.map((g) => {
       g.items.sort((a, b) => ((b.sk.in_template ? 1 : 0) - (a.sk.in_template ? 1 : 0)) || (a.sk.sort_order - b.sk.sort_order) || a.sk.name.localeCompare(b.sk.name));
       const done = g.items.filter((x) => x.row.grade).length;
-      return '<section style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px"><h2 style="margin:0;font-size:16px;color:var(--deep)">' + esc(g.cat) + " · Level " + g.lvl + '</h2><span class="hint">' + done + " of " + g.items.length + " graded</span></div>" +
+      return '<section style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px"><h2 style="margin:0;font-size:16px;color:var(--deep)">' + (appId === "All" ? esc(g.app) + " · " : "") + esc(g.cat) + " · Level " + g.lvl + '</h2><span class="hint">' + done + " of " + g.items.length + " graded</span></div>" +
         '<div class="ggrid">' + g.items.map((x) => gradeCard(x.sk, x.row, false)).join("") + "</div></section>";
     }).join("");
     const hasExtra = allItems.some((x) => !x.sk.in_template), hasTpl = allItems.some((x) => x.sk.in_template);
@@ -945,15 +947,16 @@ function gradeBodyHtml(student) {
     return legend + none + html + assignHtml();
   }
   const q = gui.q.trim().toLowerCase();
-  const list = data.skills.filter((s) => s.apparatus_id === appId && s.active)
+  const list = data.skills.filter((s) => (appId === "All" || s.apparatus_id === appId) && s.active)
     .filter((s) => gui.cat === "All" || s.category === gui.cat).filter((s) => gui.lvl === "All" || String(s.level) === gui.lvl)
     .filter((s) => q === "" || s.name.toLowerCase().indexOf(q) !== -1)
   const gradeOf = (s) => { const r = myRows.find((l) => l.skill_id === s.id); return r && r.grade ? r.grade : ""; };
   const dir = gui.fdir === "asc" ? 1 : -1;
-  const byCat = (a, b) => (CATS.indexOf(a.category) - CATS.indexOf(b.category)) || (a.level - b.level) || (a.sort_order - b.sort_order);
+  const byCat = (a, b) => (appId === "All" ? appName(a.apparatus_id).localeCompare(appName(b.apparatus_id)) : 0) || (CATS.indexOf(a.category) - CATS.indexOf(b.category)) || (a.level - b.level) || (a.sort_order - b.sort_order);
   list.sort((a, b) => {
     let r;
     if (gui.fkey === "name") r = a.name.localeCompare(b.name);
+    else if (gui.fkey === "apparatus") r = appName(a.apparatus_id).localeCompare(appName(b.apparatus_id));
     else if (gui.fkey === "level") r = a.level - b.level;
     else if (gui.fkey === "order") r = a.sort_order - b.sort_order;
     else if (gui.fkey === "grade") { const x = gradeOf(a) || "Z", y = gradeOf(b) || "Z"; r = x < y ? -1 : x > y ? 1 : 0; }
@@ -961,9 +964,9 @@ function gradeBodyHtml(student) {
     return (r * dir) || byCat(a, b) || a.name.localeCompare(b.name);
   });
   const cards = list.map((s) => gradeCard(s, myRows.find((l) => l.skill_id === s.id), true)).join("");
-  const fcols = [["name", "Skill"], ["category", "Category"], ["level", "Level"], ["order", "Order"], ["grade", "Grade"]];
+  const fcols = [["name", "Skill"]].concat(appId === "All" ? [["apparatus", "Apparatus"]] : []).concat([["category", "Category"], ["level", "Level"], ["order", "Order"], ["grade", "Grade"]]);
   const fhead = fcols.map((c) => '<th scope="col" aria-sort="' + (gui.fkey === c[0] ? (gui.fdir === "asc" ? "ascending" : "descending") : "none") + '"><button type="button" data-act="fsort" data-key="' + c[0] + '"><span>' + c[1] + '</span><span aria-hidden="true" style="font-size:11px">' + (gui.fkey === c[0] ? (gui.fdir === "asc" ? "▲" : "▼") : "") + "</span></button></th>").join("");
-  const ftrs = list.map((s) => '<tr><td style="font-weight:600"><div style="display:flex;align-items:flex-start;gap:6px">' + infoBtn(s) + "<span>" + tplStar(s) + esc(s.name) + "</span></div>" + infoNote(s) + "</td><td>" + esc(s.category) + "</td><td>" + s.level + "</td><td>" + s.sort_order + '</td><td style="white-space:nowrap;width:1%"><div class="chips" style="flex-wrap:nowrap" role="group" aria-label="Grade for ' + esc(s.name) + '">' + chipsHtml(s.id, gradeOf(s), s.name) + "</div></td></tr>").join("");
+  const ftrs = list.map((s) => '<tr><td style="font-weight:600"><div style="display:flex;align-items:flex-start;gap:6px">' + infoBtn(s) + "<span>" + tplStar(s) + esc(s.name) + "</span></div>" + infoNote(s) + "</td>" + (appId === "All" ? "<td>" + esc(appName(s.apparatus_id)) + "</td>" : "") + "<td>" + esc(s.category) + "</td><td>" + s.level + "</td><td>" + s.sort_order + '</td><td style="white-space:nowrap;width:1%"><div class="chips" style="flex-wrap:nowrap" role="group" aria-label="Grade for ' + esc(s.name) + '">' + chipsHtml(s.id, gradeOf(s), s.name) + "</div></td></tr>").join("");
   const table = '<div class="tbl"><table style="min-width:600px"><thead><tr>' + fhead + "</tr></thead><tbody>" + ftrs + "</tbody></table></div>";
   return '<p class="hint" style="text-align:center">Grading a skill here adds it to their list.</p>' +
     (cards ? '<div class="ggrid cards">' + cards + "</div>" + table : '<p class="card">No skills match.</p>') +
@@ -974,26 +977,23 @@ function assignHtml() {
   return '<div style="display:flex;flex-direction:column;gap:12px;padding-top:8px"><button type="button" class="btn2 sec" style="border-style:dashed;border-color:#9032A8" data-act="toggleAssign" aria-expanded="' + gui.assignOpen + '">Assign a template</button>' +
     (gui.assignOpen ? '<div class="formcard" style="margin:0"><div class="fld"><label class="lbl" for="tApp">Apparatus</label><select id="tApp">' + apps + '</select></div>' +
       '<div class="fld"><label class="lbl" for="tCat">Category</label><select id="tCat">' + optionsHtml(CATS.map((c) => ({ value: c, label: c })), "Basic") + "</select></div>" +
-      '<p class="hint">Adds the skills marked In template that they don\'t have yet. Anything already graded is kept, so it is safe to run again.</p>' +
+      '<p class="hint">Select an apparatus and category to add that template\'s skills to the student\'s skills list. Skills and grades the student already has will remain unchanged.</p>' +
       '<button class="btn2" type="button" data-act="assign">Assign</button></div>' : "") + "</div>";
 }
 function gradeView(id) {
   const st = sdata.students.find((s) => s.id === id);
   if (!st) return shell("students", "Student", "", "students", "", '<p class="card">That student was not found. <a href="#/students">Back to students</a></p>');
-  if (gui.studentId !== id) { gui.studentId = id; gui.tab = "mine"; gui.q = ""; gui.cat = "All"; gui.lvl = "All"; gui.assignOpen = false; }
-  if (!gui.apparatusId || !data.apparatus.some((a) => a.id === gui.apparatusId)) {
-    const withRows = sdata.log.filter((l) => l.student_id === id).map((l) => skillById(l.skill_id)).filter(Boolean)[0];
-    gui.apparatusId = withRows ? withRows.apparatus_id : (data.apparatus[0] && data.apparatus[0].id) || null;
-  }
+  if (gui.studentId !== id) { gui.studentId = id; gui.tab = "mine"; gui.q = ""; gui.cat = "All"; gui.lvl = "All"; gui.assignOpen = false; gui.apparatusId = "All"; }
+  if (gui.apparatusId !== "All" && !data.apparatus.some((a) => a.id === gui.apparatusId)) gui.apparatusId = "All";
   const stats = studentStats(id);
-  const apps = optionsHtml(data.apparatus.map((a) => ({ value: a.id, label: a.name })), gui.apparatusId);
+  const apps = optionsHtml([{ value: "All", label: "All" }].concat(data.apparatus.map((a) => ({ value: a.id, label: a.name }))), gui.apparatusId);
   const body = '<div class="panel" style="flex-direction:column;align-items:stretch"><div class="f" style="flex:none"><label for="gApp">Apparatus</label><select id="gApp">' + apps + "</select></div>" +
     '<div class="tabs" role="group" aria-label="View"><button type="button" data-act="tab" data-tab="mine" aria-pressed="' + (gui.tab === "mine") + '">Their skills</button><button type="button" data-act="tab" data-tab="find" aria-pressed="' + (gui.tab === "find") + '">Find a skill</button></div>' +
     (gui.tab === "find" ? '<div class="two2"><div class="f wide"><label for="gQ">Search the library</label><input id="gQ" type="search" value="' + esc(gui.q) + '" placeholder="Type part of a skill name"></div>' +
       '<div class="f"><label for="gCat">Category</label><select id="gCat">' + optionsHtml([{ value: "All", label: "All" }].concat(CATS.map((c) => ({ value: c, label: c }))), gui.cat) + "</select></div>" +
       '<div class="f"><label for="gLvl">Level</label><select id="gLvl">' + optionsHtml([{ value: "All", label: "All" }, { value: "1", label: "1" }, { value: "2", label: "2" }, { value: "3", label: "3" }], gui.lvl) + "</select></div></div>" : "") +
     "</div>" + '<div id="gradeBody" style="display:flex;flex-direction:column;gap:18px">' + gradeBodyHtml(st) + "</div>";
-  return shell("students", st.name, stats.graded + " of " + stats.total + " graded", "students", '<div style="display:flex;gap:8px"><a class="rowbtn" href="#/student/' + id + '/history">History</a><a class="rowbtn" href="#/student/' + id + '/edit">Edit</a></div>', body);
+  return shell("students", st.name, stats.graded + " of " + stats.total + " graded", "students", '<div class="stuacts" style="display:flex;gap:8px"><a class="btn2 sec" href="#/student/' + id + '/history">History</a><a class="btn2 sec" href="#/student/' + id + '/edit">Edit</a></div>', body);
 }
 function refreshGrade(id) {
   const st = sdata.students.find((s) => s.id === id);
@@ -1082,7 +1082,7 @@ function editStudentView(id) {
   if (!st) return shell("students", "Student", "", "students", "", '<p class="card">That student was not found. <a href="#/students">Back to students</a></p>');
   const body = '<form class="formcard" id="editForm" novalidate>' +
     '<div class="fld"><label class="lbl" for="eName">Student name</label><input id="eName" type="text" autocomplete="off" value="' + esc(st.name) + '"></div>' +
-    '<label class="chk" style="align-items:flex-start"><input id="eAct" type="checkbox"' + (st.active ? " checked" : "") + '><span>Active<small style="display:block;color:#5E5566;font-size:13px;line-height:18px">Uncheck to hide them from the student list. Their grades are kept, and you can make them active again later.</small></span></label>' +
+    '<label class="chk" style="align-items:flex-start"><input id="eAct" type="checkbox"' + (st.active ? " checked" : "") + '><span>Active<small style="display:block;color:#5E5566;font-size:13px;line-height:18px">Inactive students are hidden from the list. Their grades are retained.</small></span></label>' +
     '<fieldset style="margin:0;padding:12px 14px;border:1.5px solid var(--border);border-radius:14px"><legend style="padding:0 6px;font-size:15px;font-weight:700;color:var(--deep)">Current level</legend>' +
     '<p class="hint" style="margin-bottom:8px">Set by the instructor for each apparatus. It does not change when skills are graded or a template is assigned.</p>' +
     data.apparatus.map((a, i) => '<div class="fld" style="margin-top:8px"><label class="lbl" for="lv' + i + '">' + esc(a.name) + '</label><select id="lv' + i + '" data-app="' + a.id + '">' + optionsHtml([{ value: "", label: "Not set" }].concat(CATS.map((c) => ({ value: c, label: c }))), levelOf(id, a.id)) + "</select></div>").join("") + "</fieldset>" +
@@ -1101,7 +1101,7 @@ function wireEditStudent(id) {
     if (!st) return;
     const mine = sdata.log.filter((l) => l.student_id === id);
     const graded = mine.filter((l) => l.grade).length;
-    const ok = await confirmDialog("Delete " + st.name + "?", "This permanently deletes " + st.name + ", their " + mine.length + " skill" + (mine.length === 1 ? "" : "s") + " (" + graded + " graded) and their current levels. There is no backup and it cannot be undone. Any CSV you already downloaded will still contain their information.", "Delete student", "delete");
+    const ok = await confirmDialog("Delete " + st.name + "?", "This permanently deletes " + st.name + ", their " + mine.length + " skill" + (mine.length === 1 ? "" : "s") + " (" + graded + " graded) and their current levels. There is no backup and it cannot be undone.", "Delete student", "delete");
     if (!ok) return;
     eDel.disabled = true;
     const r = await sb.from("students").delete().eq("id", id);
@@ -1128,7 +1128,7 @@ function wireEditStudent(id) {
       if (r.error) levelFail = true;
     }
     await loadStudents();
-    if (levelFail) { setMessage("err", "Saved, but the level could not be saved. Has the levels SQL been run?"); go("student/" + id); return; }
+    if (levelFail) { setMessage("err", "Saved, but the level could not be saved."); go("student/" + id); return; }
     setMessage("ok", active ? "Saved." : "Saved. " + name + " is now inactive and hidden from the student list.");
     go(active ? "student/" + id : "students");
   });
@@ -1214,11 +1214,11 @@ function logView() {
     '<label class="chk"><input id="lUng" type="checkbox"' + (lui.ungraded ? " checked" : "") + ">Include skills not graded yet</label>" +
     '<label class="chk"><input id="lPages" type="checkbox"' + (lui.pages ? " checked" : "") + ">Print each student on a new page</label>" +
     '<button class="btn2 sec" type="button" id="lClear">Clear filters</button></div>' +
-    '<p class="printonly">Printed ' + fmtDate(todayStr()) + " &nbsp;·&nbsp; * = template skill</p>" +
+    '<p class="printonly">Printed ' + fmtDate(todayStr()) + " &nbsp;·&nbsp; (*) are template skills</p>" +
     '<div id="logList" class="' + (lui.pages ? "pagebreaks" : "") + '">' + logListHtml() + "</div>" +
-    '<p class="hint noprint">Shows each student’s current grade for each skill. * marks a template skill. Only active students are listed.</p>';
+    '<p class="hint noprint">Shows each student’s current grade for each skill. Skills marked (*) are template skills. Only active students are listed.</p>';
   const actions = '<div class="noprint" style="display:flex;gap:8px"><button class="btn2 sec" type="button" id="lPrint">Print</button><button class="btn2" type="button" id="lExport">Export CSV</button></div>';
-  return shell("log", "Class log", logRows().length + " skills", "home", actions, body);
+  return shell("log", "Log", logRows().length + " skills", "home", actions, body);
 }
 function bomIf(text) {
   /* The hidden UTF-8 marker is only needed for non-English characters, and some phone apps show it as stray symbols. */
@@ -1281,7 +1281,7 @@ function wireLog() {
   bind("lUng", "change", (e) => { lui.ungraded = e.target.checked; redo(); });
   bind("lPages", "change", (e) => { lui.pages = e.target.checked; document.getElementById("logList").className = lui.pages ? "pagebreaks" : ""; });
   bind("lClear", "click", () => { Object.assign(lui, { sel: [], app: "All", cat: "All", lvl: "All", type: "All", grade: "All", by: "All", slevel: "All", q: "", ungraded: false, pickerOpen: false }); render(); });
-  bind("lExport", "click", () => { downloadText("class-log-" + todayStr() + ".csv", logCsv(logRows())); });
+  bind("lExport", "click", () => { downloadText("log-" + todayStr() + ".csv", logCsv(logRows())); });
   bind("lPrint", "click", () => { window.print(); });
 }
 
@@ -1325,7 +1325,7 @@ function historyView(id) {
   const apps = optionsHtml([{ value: "All", label: "All apparatus" }].concat(data.apparatus.map((a) => ({ value: a.id, label: a.name }))), hui.app);
   let list;
   if (!rows.length) {
-    list = '<p class="card">' + (hui.rows.length ? "Nothing for that apparatus." : "No grade changes recorded yet. Changes are recorded from the day the history was switched on.") + "</p>";
+    list = '<p class="card">' + (hui.rows.length ? "Nothing for that apparatus." : "No grades have been entered for this student yet.") + "</p>";
   } else {
     const cards = rows.map((r) => '<div class="scard"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div class="nm">' + skNameHtml(r.sk, r.skill) + '</div><div style="white-space:nowrap">' + histChange(r) + "</div></div>" +
       '<div class="meta">' + esc(r.apparatus) + (r.category ? " · " + esc(r.category) + " · Level " + r.level : "") + " · " + fmtStamp(r.stamp) + (r.by ? " · by " + esc(r.by) : "") + "</div>" + infoNote(r.sk) + "</div>").join("");
@@ -1333,7 +1333,7 @@ function historyView(id) {
     list = '<div class="cards">' + cards + '</div><div class="tbl"><table style="min-width:820px"><thead><tr><th scope="col"><span class="plain">When</span></th><th scope="col"><span class="plain">Skill</span></th><th scope="col"><span class="plain">Apparatus</span></th><th scope="col"><span class="plain">Category</span></th><th scope="col"><span class="plain">Level</span></th><th scope="col"><span class="plain">Change</span></th><th scope="col"><span class="plain">Graded by</span></th></tr></thead><tbody>' + trs + "</tbody></table></div>";
   }
   const body = '<div class="panel noprint"><div class="f"><label for="hApp">Apparatus</label><select id="hApp">' + apps + "</select></div></div>" + '<div id="histList" style="display:flex;flex-direction:column;gap:10px">' + list + "</div>" +
-    '<p class="hint">Every time a grade is set, changed or cleared, a line is added here. Newest first. * marks a template skill.</p>';
+    '<p class="hint">Every time a grade is set, changed or cleared, a line is added here. Skills marked (*) are template skills.</p>';
   return shell("students", st.name + " history", rows.length + (rows.length === 1 ? " change" : " changes"), back, '<button class="btn2" type="button" id="hExport">Export CSV</button>', body);
 }
 function historyCsv(rows) {
