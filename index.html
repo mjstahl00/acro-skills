@@ -120,6 +120,7 @@
   .btn2 { text-align: center; }
   .setsec { display: flex; flex-direction: column; gap: 10px; }
   .setsec h2 { margin: 0; font-size: 18px; color: var(--deep); }
+  .setsec .hint { max-width: 640px; }
   .arow { display: flex; gap: 8px; }
   .arow input { flex: 1; min-width: 0; height: 48px; border: 1.5px solid var(--field); border-radius: 12px; padding: 0 12px; font-size: 16px; background: #FFFFFF; }
   .arow .rowbtn { min-height: 48px; }
@@ -414,7 +415,7 @@ const data = {
   loaded: false,
   loadedFor: null
 };
-const lib = { apparatusId: "All", cat: "Basic", level: "All", q: "", retired: false, key: "level", dir: "asc" };
+const lib = { apparatusId: "All", cat: "All", level: "All", q: "", retired: false, key: "default", dir: "asc" };
 
 async function loadApparatus() {
   const { data: rows, error } = await sb.from("apparatus").select("id,name").order("name");
@@ -465,6 +466,8 @@ function visibleSkills() {
   const dir = lib.dir === "asc" ? 1 : -1;
   const k = lib.key;
   rows.sort((a, b) => {
+    if (k === "default") return (appName(a.apparatus_id).localeCompare(appName(b.apparatus_id))) || (CATS.indexOf(a.category) - CATS.indexOf(b.category)) || (a.level - b.level) || (a.sort_order - b.sort_order) || a.name.localeCompare(b.name);
+    if (k === "category") return ((CATS.indexOf(a.category) - CATS.indexOf(b.category)) || (a.level - b.level) || (a.sort_order - b.sort_order)) * dir;
     if (k === "name") return a.name.localeCompare(b.name) * dir;
     if (k === "apparatus") return (appName(a.apparatus_id).localeCompare(appName(b.apparatus_id)) || (a.sort_order - b.sort_order)) * dir;
     let x = a[k], y = b[k];
@@ -486,7 +489,7 @@ function listHtml() {
     '<div class="bot"><div class="checks2"><label class="chk sm"><input type="checkbox" data-act="tpl" data-id="' + r.id + '"' + (r.in_template ? " checked" : "") + ' aria-label="In template: ' + esc(r.name) + '">In template</label>' +
     '<label class="chk sm"><input type="checkbox" data-act="active" data-id="' + r.id + '"' + (r.active ? " checked" : "") + ' aria-label="Active: ' + esc(r.name) + '">Active</label></div>' +
     '<div class="acts"><a class="rowbtn sm" href="#/skill/' + r.id + '">Edit</a><button class="rowbtn sm" type="button" data-act="copy" data-id="' + r.id + '">Copy</button></div></div></div>').join("");
-  const cols = [["sort_order", "Order", 80], ["name", "Name", 0]].concat(lib.apparatusId === "All" ? [["apparatus", "Apparatus", 120]] : []).concat([["category", "Category", 130], ["level", "Level", 90], ["in_template", "In template", 120], ["active", "Active", 100]]);
+  const cols = [["sort_order", "Order", 78], ["name", "Name", 0]].concat(lib.apparatusId === "All" ? [["apparatus", "Apparatus", 118]] : []).concat([["category", "Category", 128], ["level", "Level", 82], ["in_template", "In template", 112], ["active", "Active", 90]]);
   const allApp = lib.apparatusId === "All";
   const head = cols.map((c) =>
     '<th scope="col" aria-sort="' + (lib.key === c[0] ? (lib.dir === "asc" ? "ascending" : "descending") : "none") + '"' + (c[2] ? ' style="width:' + c[2] + 'px"' : "") + '>' +
@@ -497,8 +500,8 @@ function listHtml() {
     '<td><input type="checkbox" data-act="active" data-id="' + r.id + '"' + (r.active ? " checked" : "") + ' aria-label="Active: ' + esc(r.name) + '"></td>' +
     '<td><div style="display:flex;gap:8px"><a class="rowbtn" href="#/skill/' + r.id + '">Edit</a><button class="rowbtn" type="button" data-act="copy" data-id="' + r.id + '">Copy</button></div></td></tr>').join("");
   return '<div class="cards">' + cards + "</div>" +
-    '<div class="tbl"><table><thead><tr>' + head + '<th scope="col" style="width:170px"><span class="plain">Actions</span></th></tr></thead><tbody>' + trs + "</tbody></table></div>" +
-    '<p class="hint">Select "In Template" will add that skill to the template for that category which can then be assigned to a student. Retiring a skill hides it without deleting any grades.</p>';
+    '<div class="tbl"><table style="table-layout:fixed"><thead><tr>' + head + '<th scope="col" style="width:176px"><span class="plain">Actions</span></th></tr></thead><tbody>' + trs + "</tbody></table></div>" +
+    '<p class="hint">Skills checked In template are added to the template for their apparatus and category, which can be assigned to a student. Uncheck Active to retire a skill. Retired skills are hidden, and no grades are deleted.</p>';
 }
 function libraryView() {
   const apps = optionsHtml([{ value: "All", label: "All" }].concat(data.apparatus.map((a) => ({ value: a.id, label: a.name }))), lib.apparatusId);
@@ -558,15 +561,13 @@ function wireLibrary() {
     }
   });
 }
-async function copySkill(id) {
+let copyDraft = null;
+function copySkill(id) {
   const src = data.skills.find((s) => s.id === id);
   if (!src) return;
-  const row = { name: src.name, description: src.description, apparatus_id: src.apparatus_id, category: src.category, level: src.level, sort_order: src.sort_order, active: true, in_template: false };
-  const { data: made, error } = await sb.from("skills").insert(row).select().single();
-  if (error || !made) { setMessage("err", "Could not copy that skill."); render(); return; }
-  data.skills.push(made);
+  copyDraft = { name: src.name, description: src.description || "", apparatus_id: src.apparatus_id, category: src.category, level: src.level, sort_order: null, active: true, in_template: false };
   setMessage("ok", "Copied. Change what you need and save.");
-  go("skill/" + made.id);
+  go("skill/new");
 }
 
 /* ---------- Add / edit skill ---------- */
@@ -582,7 +583,7 @@ function skillView(idOrNew, fromStudent) {
     return shell("library", "Skill", "", "library", "", '<p class="card">That skill was not found. <a href="#/library">Back to the library</a></p>');
   }
   if (fromStudent && gui.apparatusId) lib.apparatusId = gui.apparatusId;
-  const v = sk || { name: "", description: "", apparatus_id: lib.apparatusId === "All" ? (data.apparatus[0] && data.apparatus[0].id) || null : lib.apparatusId, category: lib.cat === "All" ? "Basic" : lib.cat, level: lib.level === "All" ? 1 : Number(lib.level), sort_order: null, in_template: false, active: true };
+  const v = sk || (!fromStudent && copyDraft ? Object.assign({}, copyDraft) : { name: "", description: "", apparatus_id: lib.apparatusId === "All" ? (data.apparatus[0] && data.apparatus[0].id) || null : lib.apparatusId, category: lib.cat === "All" ? "Basic" : lib.cat, level: lib.level === "All" ? 1 : Number(lib.level), sort_order: null, in_template: false, active: true });
   const order = v.sort_order === null ? nextOrder(v.apparatus_id, v.category, v.level) : v.sort_order;
   const body = '<form class="formcard" id="skillForm" novalidate>' +
     '<div class="fld"><label class="lbl" for="kName">Skill name</label><textarea id="kName" rows="2">' + esc(v.name) + "</textarea></div>" +
@@ -591,9 +592,9 @@ function skillView(idOrNew, fromStudent) {
     '<div class="fld"><label class="lbl" for="kCat">Category</label><select id="kCat">' + optionsHtml(CATS.map((c) => ({ value: c, label: c })), v.category) + "</select></div>" +
     '<div class="fld"><label class="lbl" for="kLvl">Level</label><select id="kLvl">' + optionsHtml([1, 2, 3].map((n) => ({ value: n, label: String(n) })), v.level) + "</select></div>" +
     '<div class="fld"><label class="lbl" for="kOrd">Order within the level</label><input id="kOrd" type="number" value="' + order + '"></div></div>' +
-    '<div class="checks"><label class="chk" style="align-items:flex-start"><input id="kTpl" type="checkbox"' + (v.in_template ? " checked" : "") + '><span>In template<small>Check to hand this skill out when its category is assigned to a student.</small></span></label>' +
-    '<label class="chk" style="align-items:flex-start"><input id="kAct" type="checkbox"' + (v.active ? " checked" : "") + '><span>Active<small>Uncheck to retire it. Existing grades are kept.</small></span></label></div>' +
-    '<div class="btnrow"><button class="btn2" type="submit" id="kSave">' + (fromStudent && isNew ? "Save and assign to student" : "Save skill") + '</button><a class="btn2 sec" href="#/' + backTo + '">Cancel</a>' + (isNew ? "" : '<button class="btn2 sec webonly" type="button" id="kDel" style="color:#B91C1C;border-color:#B91C1C">Delete skill</button>') + '</div>' + (isNew ? "" : '<p class="hint webonly" style="margin:8px 0 0 0">Delete is for mistakes such as duplicates. If students have grades for this skill you can move them to another skill as part of the delete. To keep a skill but hide it, uncheck Active instead.</p>') + '</form>';
+    '<div class="checks"><label class="chk" style="align-items:flex-start"><input id="kTpl" type="checkbox"' + (v.in_template ? " checked" : "") + '><span>In template<small>Check to include this skill in the template. Template skills are added when their apparatus and category are assigned to a student.</small></span></label>' +
+    '<label class="chk" style="align-items:flex-start"><input id="kAct" type="checkbox"' + (v.active ? " checked" : "") + '><span>Active<small>Uncheck to retire skill. Existing grades are retained.</small></span></label></div>' +
+    '<div class="btnrow"><button class="btn2" type="submit" id="kSave">' + (fromStudent && isNew ? "Save and assign to student" : "Save skill") + '</button><a class="btn2 sec" href="#/' + backTo + '">Cancel</a>' + (isNew ? "" : '<button class="btn2 sec webonly" type="button" id="kDel" style="color:#B91C1C;border-color:#B91C1C">Delete skill</button>') + '</div>' + (isNew ? "" : '<p class="hint webonly" style="margin:8px 0 0 0">Delete skill is for mistakes such as duplicates. If students have grades for this skill, you can move them to another skill as part of the delete process. To keep a skill but hide it, uncheck Active instead.</p>') + '</form>';
   return shell(fromStudent ? "students" : "library", isNew ? "Add skill" : "Edit skill", fromStudent ? "Adds the skill to the library and to " + ((sdata.students.find((x) => x.id === fromStudent) || {}).name || "this student") + "'s list." : "", backTo, "", body);
 }
 function wireSkill(idOrNew, fromStudent) {
@@ -1135,12 +1136,12 @@ function wireEditStudent(id) {
 }
 
 /* ---------- Log (class status) ---------- */
-const lui = { sel: [], app: "All", cat: "All", lvl: "All", type: "All", grade: "All", by: "All", slevel: "All", q: "", ungraded: false, pages: true, pickerOpen: false };
+const lui = { sel: [], app: "All", cat: "All", lvl: "All", type: "All", grade: "All", by: "All", slevel: "All", q: "", ungraded: false, pages: true, pickerOpen: false, key: "", dir: "asc" };
 
 function gradeChip(g) {
-  if (!g) return '<span class="hint">not graded</span>';
+  if (!g) return '<span class="hint" style="white-space:nowrap;flex:none">not graded</span>';
   const pal = { A: ["#DCFCE7", "#15803D", "#14532D"], B: ["#FEF3C7", "#B45309", "#713F12"], C: ["#FEE2E2", "#B91C1C", "#7F1D1D"] }[g];
-  return '<span role="img" aria-label="Grade ' + g + '" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:9px;font-weight:700;border:2px solid ' + pal[1] + ";background:" + pal[0] + ";color:" + pal[2] + '">' + g + "</span>";
+  return '<span role="img" aria-label="Grade ' + g + '" style="display:inline-flex;flex:none;align-items:center;justify-content:center;width:32px;height:32px;border-radius:9px;font-weight:700;border:2px solid ' + pal[1] + ";background:" + pal[0] + ";color:" + pal[2] + '">' + g + "</span>";
 }
 function logRows() {
   const q = lui.q.trim().toLowerCase();
@@ -1174,16 +1175,27 @@ function logListHtml() {
   if (!rows.length) return '<p class="card">' + (sdata.log.length ? "Nothing matches these filters. Skills that are not graded yet are hidden unless you check the box." : "No students have skills yet.") + "</p>";
   const groups = [];
   rows.forEach((r) => { let g = groups[groups.length - 1]; if (!g || g.id !== r.student_id) { g = { id: r.student_id, name: r.student, rows: [] }; groups.push(g); } g.rows.push(r); });
+  const sortKey = {
+    skill: (a, b) => a.skill.localeCompare(b.skill),
+    apparatus: (a, b) => a.apparatus.localeCompare(b.apparatus),
+    category: (a, b) => CATS.indexOf(a.category) - CATS.indexOf(b.category),
+    level: (a, b) => a.level - b.level,
+    grade: (a, b) => (a.grade || "Z") < (b.grade || "Z") ? -1 : (a.grade || "Z") > (b.grade || "Z") ? 1 : 0,
+    day: (a, b) => (a.day || "") < (b.day || "") ? -1 : (a.day || "") > (b.day || "") ? 1 : 0,
+    by: (a, b) => (a.by || "").localeCompare(b.by || "")
+  };
+  if (lui.key && sortKey[lui.key]) groups.forEach((g) => { g.rows = g.rows.slice().sort((a, b) => sortKey[lui.key](a, b) * (lui.dir === "asc" ? 1 : -1)); });
+  const lth = (k, label) => '<th scope="col" aria-sort="' + (lui.key === k ? (lui.dir === "asc" ? "ascending" : "descending") : "none") + '"><button type="button" data-act="lsort" data-key="' + k + '"><span>' + label + '</span><span aria-hidden="true" style="font-size:11px">' + (lui.key === k ? (lui.dir === "asc" ? "▲" : "▼") : "") + "</span></button></th>";
   return groups.map((g) => {
     const lv = levelsText(g.id);
     const cards = g.rows.map((r) =>
       '<div class="scard"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div class="nm">' + skNameHtml(r.sk, r.skill) + "</div>" + gradeChip(r.grade) + "</div>" +
-      '<div class="meta">' + esc(r.category) + " · Level " + r.level + (r.day ? " · " + fmtDate(r.day) : "") + (r.by ? " · by " + esc(r.by) : "") + "</div>" + infoNote(r.sk) + "</div>").join("");
+      '<div class="meta">' + esc(r.apparatus) + " · " + esc(r.category) + " · Level " + r.level + (r.day ? " · " + fmtDate(r.day) : "") + (r.by ? " · by " + esc(r.by) : "") + "</div>" + infoNote(r.sk) + "</div>").join("");
     const trs = g.rows.map((r) =>
-      "<tr><td>" + skNameHtml(r.sk, r.skill) + infoNote(r.sk) + "</td><td>" + esc(r.category) + "</td><td>" + r.level + "</td><td>" + gradeChip(r.grade) + '</td><td style="white-space:nowrap">' + (r.day ? fmtDate(r.day) : "") + '</td><td style="font-weight:600;color:var(--deep)">' + esc(r.by) + "</td></tr>").join("");
+      "<tr><td>" + skNameHtml(r.sk, r.skill) + infoNote(r.sk) + "</td><td>" + esc(r.apparatus) + "</td><td>" + esc(r.category) + "</td><td>" + r.level + "</td><td>" + gradeChip(r.grade) + '</td><td style="white-space:nowrap">' + (r.day ? fmtDate(r.day) : "") + '</td><td style="font-weight:600;color:var(--deep)">' + esc(r.by) + "</td></tr>").join("");
     const graded = g.rows.filter((r) => r.grade).length;
     return '<section class="stugroup"><div class="sghead"><h2>' + esc(g.name) + '</h2><span class="hint">' + (lv ? esc(lv) + " · " : "") + graded + " graded" + (g.rows.length !== graded ? ", " + (g.rows.length - graded) + " not yet" : "") + "</span></div>" +
-      '<div class="cards">' + cards + '</div><div class="tbl"><table style="min-width:760px"><thead><tr><th scope="col"><span class="plain">Skill</span></th><th scope="col"><span class="plain">Category</span></th><th scope="col"><span class="plain">Level</span></th><th scope="col"><span class="plain">Grade</span></th><th scope="col"><span class="plain">Date graded</span></th><th scope="col"><span class="plain">Graded by</span></th></tr></thead><tbody>' + trs + "</tbody></table></div></section>";
+      '<div class="cards">' + cards + '</div><div class="tbl"><table style="min-width:840px"><thead><tr>' + lth("skill", "Skill") + lth("apparatus", "Apparatus") + lth("category", "Category") + lth("level", "Level") + lth("grade", "Grade") + lth("day", "Date graded") + lth("by", "Graded by") + '</tr></thead><tbody>' + trs + "</tbody></table></div></section>";
   }).join("");
 }
 function pickerHtml() {
@@ -1270,6 +1282,13 @@ function wireLog() {
     }));
   };
   wirePicker();
+  document.getElementById("logList").addEventListener("click", (e) => {
+    const t = e.target.closest('[data-act="lsort"]');
+    if (!t) return;
+    const k = t.getAttribute("data-key");
+    if (lui.key === k) lui.dir = lui.dir === "asc" ? "desc" : "asc"; else { lui.key = k; lui.dir = "asc"; }
+    redo();
+  });
   bind("lApp", "change", (e) => { lui.app = e.target.value; redo(); });
   bind("lSLv", "change", (e) => { lui.slevel = e.target.value; redo(); });
   bind("lCat", "change", (e) => { lui.cat = e.target.value; redo(); });
@@ -1487,7 +1506,7 @@ function analyseImport(table) {
   const head = table[0].map((h) => String(h).trim().toLowerCase().replace(/\s+/g, "_"));
   const idx = {}; IMP_COLS.forEach((c) => { idx[c] = head.indexOf(c); });
   const missing = ["name", "apparatus", "category", "level"].filter((c) => idx[c] === -1);
-  if (missing.length) return { error: "The file is missing these column headings: " + missing.join(", ") + ". Use Download blank template to get the right headings." };
+  if (missing.length) return { error: "The file is missing these column headings: " + missing.join(", ") + ". Use Download Blank Upload Template to get the right headings." };
   const have = {};
   data.skills.forEach((s) => { have[keyOf(s.apparatus_id, s.name, s.category, s.level)] = true; });
   const next = {};
@@ -1546,12 +1565,12 @@ function importPreviewHtml() {
 function importView() {
   const apps = data.apparatus.map((a) => a.name).join(", ") || "none yet";
   const body = '<section class="card"><h2 style="margin:0 0 8px 0;color:var(--deep)">How to upload skills from a file</h2><ol style="margin:0;padding-left:22px;line-height:1.6">' +
-    "<li>Press <b>Download All Skills</b>. It opens in Excel or Google Sheets and lists every skill already in the library (active and inactive).</li>" +
-    "<li>Use that list to determine if a skill is already in the library. You can then delete the rows you don't need and keep the top header row, or press <b>Download blank Upload template</b> for a clean file.</li>" +
+    "<li>Press <b>Download All Skills</b>. It opens in Excel or Google Sheets and lists every skill in the library (active and inactive).</li>" +
+    "<li>Use that list to determine if a skill is in the library. You can then delete the rows you don't need and keep the top header row, or press <b>Download Blank Upload Template</b> for a clean file.</li>" +
     "<li>Add the new skills as new rows below the top header row.<br><b>Apparatus</b> options are " + esc(apps) + ".<br><b>Category</b> options are " + CATS.slice(0, -1).join(", ") + " or " + CATS[CATS.length - 1] + ".<br><b>Level</b> options are 1, 2 or 3.<br><b>In template</b> must be yes or no.</li>" +
     "<li>Save as CSV, press <b>Upload New Skills</b>, select file, check the preview, then press the add button. Skills already in the library are skipped, so the system will not duplicate skills within reason.</li></ol>" +
     '<p class="hint" style="margin:10px 0 0 0">The text entered in the Apparatus, Category, In template and Skill name fields is not case sensitive.</p></section>' +
-    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0"><button class="btn2 sec" type="button" id="iDown">Download All Skills</button><button class="btn2 sec" type="button" id="iTpl">Download blank Upload template</button><button class="btn2" type="button" id="iUp">Upload New Skills</button><input id="iFile" type="file" accept=".csv,text/csv" hidden></div>' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0"><button class="btn2 sec" type="button" id="iDown">Download All Skills</button><button class="btn2 sec" type="button" id="iTpl">Download Blank Upload Template</button><button class="btn2" type="button" id="iUp">Upload New Skills</button><input id="iFile" type="file" accept=".csv,text/csv" hidden></div>' +
     '<div id="iPrev">' + importPreviewHtml() + "</div>";
   return shell("library", "Upload / Download Skills", "", "library", "", body);
 }
@@ -1611,6 +1630,7 @@ async function render() {
   const parts = r.split("/");
   const token = ++renderToken;
   const known = ["library", "skill", "settings", "students", "student", "log", "import"];
+  if (!(parts[0] === "skill" && parts[1] === "new" && !parts[2])) copyDraft = null;
   if (r === "home" || known.indexOf(parts[0]) === -1) {
     app.innerHTML = homeView();
     document.getElementById("signout").addEventListener("click", signOut);
